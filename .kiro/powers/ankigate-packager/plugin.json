@@ -1,0 +1,15 @@
+{
+  "name": "ankigate-packager",
+  "version": "1.0.0",
+  "description": "Reusable Kiro Power for AnkiGate bundling skills and DevTools inspection.",
+  "schemaVersion": "1.0",
+  "skills": [
+    {
+      "name": "anki-protocol-checker",
+      "path": "skills/anki-protocol-checker.md"
+    }
+  ],
+  "mcpServers": [
+    "devtools-inspector"
+  ]
+}

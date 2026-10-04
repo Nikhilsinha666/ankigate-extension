@@ -1,0 +1,1204 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<title>Anki Study · Block Sites Until I Complete ANKI</title>
+<!-- theme.css holds the palette. Note that it deliberately keeps the DARK tokens
+     for html.mini — the little always-on-top camera window floats over Anki, and
+     a white video chrome hovering over a full-screen app looks broken. So the
+     full tab follows your theme and the floating window stays dark. -->
+<link rel="stylesheet" href="theme.css" />
+<script src="theme.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--desk-grad); color: var(--ink); }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 36px 24px; }
+  .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .logo { width: 34px; height: 34px; display: grid; place-items: center; }
+  .logo svg { width: 32px; height: 32px; display: block; }
+  h1 { font-size: 22px; font-weight: 800; }
+  .grow { flex: 1 1 auto; min-width: 0; }
+  .tag { color: var(--ink2); font-size: 13px; margin-bottom: 20px; }
+  .grid { display: grid; grid-template-columns: 280px 1fr; gap: 16px; }
+  @media (max-width: 680px){ .grid { grid-template-columns: 1fr; } }
+  .card { background: var(--card-glass); border: 1px solid var(--line); border-radius: 16px; padding: 18px; }
+  .camwrap { position: relative; border-radius: 12px; overflow: hidden; background: #000; aspect-ratio: 4/3; }
+  /* contain, not cover, and anchored to the top.
+     `cover` fills the box by cropping whatever doesn't fit, which was free while the box was
+     4:3 like the camera — but the little window's picture now fills a window of any shape, and
+     at the default 200x250 that meant throwing away about a third of the width. It looked
+     like the camera had zoomed in, and it is worse than it looks: this is the window you
+     check your framing in, so a crop can push your face out of the picture while the
+     detector, which reads the whole frame, still sees it perfectly well. The view would then
+     disagree with the verdict.
+     Top, so the spare height collects at the BOTTOM — which is exactly where the clock
+     already floats, so the strip it needs comes out of space that was empty anyway. */
+  video { width: 100%; height: 100%; object-fit: contain; object-position: top center;
+          transform: scaleX(-1); display: block; background:#000; }
+  /* Marker layer: same mirroring as the video, so a dot drawn at the face's
+     position in the frame lands on the face you see. Never eats clicks. */
+  /* The same fit and the same anchor as the video, and not optional.
+     The canvas bitmap is the camera FRAME (v.videoWidth × v.videoHeight — see drawMarkers),
+     so it only lines up with the picture while both are mapped into the box identically.
+     Stretched instead, it squashed where the video did not: the box was 4:3 like the frame so
+     it happened to agree, and the moment the little window's picture stopped being 4:3 every
+     marker would have landed beside the face instead of on it. Anything changed above has to
+     be changed here in the same breath. */
+  .camov { position:absolute; inset:0; width:100%; height:100%;
+           object-fit:contain; object-position: top center;
+           transform: scaleX(-1); pointer-events:none; }
+  .camov[hidden] { display:none; }
+  /* Small eye button over the picture: turns the markers off when they get busy.
+     Solid dark disc with a ring, so it reads against a bright or busy picture.
+     These sit ON the video, never on the page, so they stay dark in both themes. */
+  /* The switches live in a stack that folds away behind one button, so the picture is a
+     picture again. They were three permanent discs down the left edge; see the note in the
+     markup. The container is what is positioned now, and the buttons are ordinary flex
+     children of it — three hand-placed `top` offsets could not have collapsed. */
+  /* The stack opens to the RIGHT, along the top edge, not downward into the picture.
+     Downward walked the switches across your own face: the picture is about 130px tall in the
+     little window, so three discs and their gaps reached most of the way to your chin — over the
+     part of the frame the detector cares about, in the window you check your framing in.
+     Sideways they stay in the top strip, which is ceiling, and they stop short of the face dot
+     in the opposite corner at every window width. */
+  .camtools { position:absolute; left:6px; top:6px; z-index:3;
+              display:flex; flex-direction:row; align-items:center; gap:5px; }
+  .camtoglist { display:flex; flex-direction:row; align-items:center; gap:5px; }
+  /* Not display:none. A box that is not laid out has nothing to animate from or to, which is why
+     this used to appear and vanish outright. visibility keeps it out of the tab order and away
+     from the pointer just as well, and it can be timed: flipped at once on the way open, held
+     back on the way shut until the discs have finished sliding home. */
+  .camtoglist { visibility:visible; transition:visibility 0s; }
+  .camtools:not(.open) .camtoglist { visibility:hidden; pointer-events:none;
+                                     transition:visibility 0s linear .2s; }
+  /* The discs carry the movement themselves, and staggered, so the row unfolds from behind the
+     opener rather than arriving all at once — which is also what makes it obvious where they have
+     gone when you close it again. */
+  .camtoglist .camtog { transition:transform .18s cubic-bezier(.2,.8,.3,1), opacity .15s ease; }
+  .camtools:not(.open) .camtoglist .camtog { transform:translateX(-12px) scale(.8); opacity:0; }
+  .camtools.open .camtoglist .camtog:nth-child(2) { transition-delay:.04s; }
+  .camtools.open .camtoglist .camtog:nth-child(3) { transition-delay:.08s; }
+  /* A fourth disc joined the row, and the stagger is written per position rather than generated — so
+     a new one arrives with no delay at all and steps out of line with the three beside it. */
+  .camtools.open .camtoglist .camtog:nth-child(4) { transition-delay:.12s; }
+  /* And a fifth — auto resume, the other half of the pause disc beside it. Exactly the note above:
+     without its own line it would arrive with no delay while the four beside it are still on their
+     way out. */
+  .camtools.open .camtoglist .camtog:nth-child(5) { transition-delay:.16s; }
+  /* And a sixth, the settings gear, which stays last in the row: the five before it remember
+     something and this one does something, so it is the one that should not move when another
+     switch is added. */
+  .camtools.open .camtoglist .camtog:nth-child(6) { transition-delay:.20s; }
+  /* Anyone who has asked not to be moved still gets the switches, just without the journey. */
+  @media (prefers-reduced-motion: reduce) {
+    .camtoglist .camtog { transition:none; }
+    .camtools:not(.open) .camtoglist .camtog { transform:none; }
+  }
+  .camtog { position:relative; width:26px; height:26px; padding:0;
+            display:grid; place-items:center; border-radius:999px; cursor:pointer;
+            color:#fde68a; background:rgba(2,6,23,.82); border:1px solid rgba(253,230,138,.55);
+            box-shadow:0 1px 6px rgba(0,0,0,.55); opacity:.85; transition:opacity .12s ease, transform .12s ease; }
+  .camtog svg { width:62%; height:62%; display:block; fill:none; stroke:currentColor;
+                stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; }
+
+  .camwrap:hover .camtog, .camtog:focus-visible { opacity:1; }
+  .camtog:active { transform:scale(.92); }
+  /* On is warm amber, off is cold slate. Colour carries the state on its own — there was
+     a diagonal line through the glyph too, and it made three small icons unreadable: it
+     crossed the shapes it was drawn over and turned each one into a different symbol. */
+  .camtog[aria-pressed="false"] { color:#94a3b8; border-color:rgba(148,163,184,.4); }
+  .camtog[aria-pressed="false"] .wave { display:none; }
+  .camtog:focus-visible { outline:2px solid #f59e0b; outline-offset:2px; }
+  /* The opener is not a switch, so it must not wear the switch's amber "on" colour while
+     shut — that would read as a fourth thing being turned on. Neutral closed, amber open. */
+  .camtoggle { color:#e2e8f0; border-color:rgba(226,232,240,.42); }
+  .camtools.open .camtoggle { color:#fde68a; border-color:rgba(253,230,138,.55); }
+  /* The gear, for the same reason as the opener and by the same means: it is a link, not a switch, so
+     amber would say "this one is turned on" about a button that has no on. Neutral in both states,
+     and deliberately no aria-pressed on it either — the [aria-pressed="false"] rule above would
+     otherwise grey it out as a switch somebody had turned off. */
+  .camlink { color:#e2e8f0; border-color:rgba(226,232,240,.42); }
+  /* Reset-size sits in the clock strip now, beside the pause button — see the markup, and the
+     .iconbtn rules further down. It used to float in the picture's bottom-right corner at
+     bottom:4% of the WINDOW, and the strip's height is capped (font-size:min(6vw,24px)), so
+     the two drifted apart as the window grew: past a certain size the button climbed out of
+     the dark panel and stood on bare video. Anchored to the strip it cannot, at any size.
+     Still only in the floating window — a full tab has no window of its own to resize.
+     By id, both here and in the mini rule that brings it back, because .iconbtn below sets a
+     display of its own and a class-vs-class fight is settled by whichever is written last —
+     which is a rule about the ORDER of this file, not about what should win. */
+  #sizeReset { display:none; }
+  html.mini .camtools { left:4%; top:4%; gap:min(2.2vw, 5px); }
+  html.mini .camtoglist { gap:min(2.2vw, 5px); }
+  html.mini .camtog { width:min(11vw, 26px); height:min(11vw, 26px); opacity:.9; }
+  .camstatus { position:absolute; left:0; right:0; bottom:0; padding:5px 8px; font-size:11px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; text-align:center; color:#fff; background: rgba(15,23,42,.8); }
+  .ok .camstatus { background: rgba(22,163,74,.9); }
+  .bad .camstatus { background: rgba(220,38,38,.9); }
+  .wait .camstatus { background: rgba(202,138,4,.9); }
+  .idle .camstatus { background: rgba(71,85,105,.9); }
+  h2 { font-size: 13px; color: var(--warn); text-transform: uppercase; letter-spacing:.5px; margin-bottom: 12px; }
+  .big { font-size: 40px; font-weight: 800; letter-spacing: -1px; }
+  .sub { color: var(--ink2); font-size: 13px; margin-top: 2px; }
+  .progress { height: 10px; background: var(--line); border-radius: 999px; overflow:hidden; margin: 14px 0 8px; }
+  .progress > div { height:100%; background: linear-gradient(90deg, var(--blue), var(--link)); width:0%; transition: width .4s; }
+  .row { display:flex; align-items:center; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed var(--line); font-size: 13px; }
+  .row:last-child { border-bottom: none; }
+  .pill { font-size: 11px; font-weight: 800; padding: 3px 9px; border-radius: 999px; }
+  .green { background: var(--good-l); color: var(--good); }
+  .red { background: var(--bad-l); color: var(--bad); }
+  .amber { background: var(--warn-l); color: var(--warn); }
+  .hint { color: var(--muted); font-size:12px; margin-top:12px; line-height:1.6; }
+  .btn { width:100%; margin-top:10px; padding:9px 12px; border:1px solid var(--blue-d); border-radius:10px; cursor:pointer; font-size:13px; font-weight:700; color: var(--on-blue); background: var(--blue); }
+  .btn:hover { background: var(--blue-d); }
+  .btn.sec { background: var(--card2); color: var(--ink); border:1px solid var(--line); }
+  .btn.sec:hover { background: var(--blue-l); border-color: var(--blue); color: var(--link); }
+  .floathint { color: var(--muted); font-size:11px; margin-top:6px; text-align:center; }
+  .camaway { display:none; place-items:center; text-align:center; color: var(--ink2); font-size:12px; line-height:1.6; background: var(--card2); border:1px dashed var(--line); border-radius:12px; aspect-ratio:4/3; padding:12px; }
+  /* First-run prompt: one click puts the camera + clock on top of Anki */
+  .gate { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 24px; background: var(--scrim); backdrop-filter: blur(3px); cursor: pointer; }
+  .gate.hidden { display: none; }
+  .gatecard { max-width: 460px; text-align: center; background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 26px 24px; box-shadow: var(--shadow-l); }
+  .gatecard .em { font-size: 40px; }
+  .gatecard h3 { font-size: 19px; font-weight: 800; margin: 8px 0 8px; }
+  .gatecard p { color: var(--ink2); font-size: 13px; line-height: 1.7; }
+  .gatecard .why { color: var(--muted); font-size: 11px; margin-top: 10px; line-height: 1.6; }
+  .gatecard .later { display:inline-block; margin-top: 10px; color: var(--muted); font-size: 12px; text-decoration: underline; }
+  .gateerr { color: var(--bad); font-size:12px; margin-top:10px; min-height:16px; }
+  .pinwarn { display:none; margin-top:8px; padding:6px 8px; border-radius:8px; font-size:11px; line-height:1.5;
+             color: var(--warn); background: var(--warn-l); border:1px solid rgba(var(--warn-rgb),.45); }
+  /* ---- the little always-on-top camera window (?mini=1): icons only ---- */
+  html.mini, html.mini body { background: var(--desk); overflow:hidden; }
+  html.mini .wrap { padding:0; max-width:none; }
+  html.mini .brand, html.mini .tag, html.mini .gate, html.mini #popout,
+  html.mini #floathint, html.mini .hint, html.mini .card h2, html.mini #camaway,
+  html.mini .row, html.mini .pinwarn, html.mini .tip { display:none !important; }
+  /* .done is deliberately NOT in that list. It used to be, which meant the finished panel
+     existed only in the full tab — and the little window, the one actually on your screen
+     when you finish, just vanished. */
+  html.mini .grid { display:block; }
+  html.mini .card { background:transparent; border:0; border-radius:0; padding:0; }
+  /* The picture IS the window. It used to be a 4:3 box with a dark banner bolted under it
+     holding the clock, the pause button and the icons — so the window was half camera and
+     half dashboard, and the height was spent twice: once on the banner, once on the picture
+     the banner pushed up. Now the video fills the window and everything else floats on it. */
+  html.mini .camwrap { border-radius:0; aspect-ratio:auto; height:100vh; }
+  /* Grab the picture anywhere and move the window with it. The title bar can do this too, but
+     at passport size the title bar is a sliver, and the picture is the biggest, most obvious
+     thing to take hold of. The cursor is the whole affordance. */
+  html.mini .camwrap { cursor:grab; }
+  html.mini.dragging, html.mini.dragging .camwrap, html.mini.dragging video { cursor:grabbing; }
+  /* Anything you can press keeps its own cursor, so it never looks draggable. */
+  html.mini .camtog, html.mini .dbtn, html.mini #pinfix { cursor:pointer; }
+  /* …unless it can't be pressed. Stated again here because the rule above it is more specific
+     than the plain .dbtn:disabled one, and would leave a dead button wearing a hand. */
+  html.mini .dbtn:disabled { cursor:default; }
+  html.mini #clockbar {
+    position:absolute; left:0; right:0; bottom:0; z-index:4;
+    /* The one number that sizes the whole strip. Everything inside it is in em, so this is
+       the only place its scale is decided — and there is no floor, only a ceiling, because a
+       floor is exactly what made it swallow the picture in a small window.
+       7.5vw, up from 6: the clock is the thing you glance at from across the desk, and at 6 it
+       was a caption. The ceiling is the same multiple of the new base, so nothing changes about
+       how it behaves when the window is dragged out wide.
+       This is close to as far as it goes. Measured with the longest clock the strip can ever
+       hold ("11:02:31 / 12:03:08"): the row still fits on one line at every window width here,
+       and at 8vw it stops fitting at all of them. */
+    font-size:min(7.5vw, 30px);
+    /* Room on all four sides now, because the strip holds round buttons at both ends rather
+       than just a line of text. The bottom is the deepest: the progress bar used to sit between
+       the clock and the window's edge, and with that gone whatever comes last — the clock, or
+       the reason line under it — was pressed straight against the edge. */
+    padding:.28em .3em .42em;
+    /* Solid all the way to its own top edge, and dark enough to read anything against.
+       It used to fade out inside itself — opaque for the lower 55%, gone by the top — and the
+       controls are as tall as the strip is, so the pause button and the reset-size button
+       stood with their upper halves above the panel they belong to, half on glass and half on
+       picture. That is what "the icons are outside the banner" was.
+       The softening is still there; it happens ABOVE the strip now (::before), on the picture,
+       where it costs the contents nothing. */
+    /* No backdrop-filter. There is nothing behind this to blur — when the window is fitted the
+       strip sits exactly on the letterbox band below the picture — and a blur layer in a small
+       always-on-top window is compositing work taken from a page already running a webcam and
+       a face detector. */
+    background:linear-gradient(to bottom, rgba(3,7,18,.90), rgba(3,7,18,.97));
+    /* A hairline of light along the top: the panel reads as a pane of glass laid over the
+       picture rather than a hole cut out of it. */
+    box-shadow:inset 0 1px 0 rgba(226,232,240,.16);
+    /* The strip takes its own clicks, and with them its own cursor. It used to pass
+       everything through to the picture behind it, and that had two consequences: the
+       picture's grab cursor showed over the clock, and dragging from the clock moved the
+       window. Both put a handle's affordance on what is only a readout — the cursor said
+       "pick this up" over a solid panel of numbers. Now the arrow stays an arrow here, the
+       buttons keep their pointer, and the drag handler in study.js ignores anything inside
+       this strip.
+       Only the two layers drawn ABOVE the strip, on the picture, still pass through: the
+       fade (::before) and the reason line (#state). The picture under those is still a
+       handle, so they have to stay scenery. */
+    pointer-events:auto;
+    cursor:default;
+    /* Dragging across a readout should not sweep a selection through it. */
+    user-select:none;
+  }
+  /* The fade from picture into panel. Outside the strip's box on purpose — absolutely
+     positioned, so it adds nothing to offsetHeight, which is the number the window's own
+     height is fitted to (see reportShape in study.js, which measures it). */
+  html.mini #clockbar::before { content:''; position:absolute; left:0; right:0; bottom:100%;
+    height:1.15em; pointer-events:none;
+    background:linear-gradient(to top, rgba(3,7,18,.8), rgba(3,7,18,0)); }
+  html.mini #clockbar button, html.mini #clockbar .mb { pointer-events:auto; }
+  /* Over video, at any brightness. */
+  html.mini #clockbar .big, html.mini #clockbar #state { text-shadow:0 1px 3px rgba(0,0,0,.85); }
+  html.mini #clockbar .progress { background:rgba(148,163,184,.35); }
+  /* Everything below scales with the window width (vw), so it stays in
+     proportion whether it's passport-photo small or dragged out bigger. */
+  /* face state: a small dot in the corner of the picture, not a green band */
+  /* Top-right, not bottom-right: the clock now floats along the bottom edge, and the dot
+     was underneath it.
+     min(), not clamp(): a floor is what stopped everything shrinking. See the note on
+     #clockbar's font-size below — the same reasoning applies to every size in this window. */
+  html.mini .camstatus { left:auto; right:4%; top:4%; bottom:auto; padding:0; border-radius:999px;
+    width:min(8vw, 20px); height:min(8vw, 20px);
+    font-size:min(5vw, 12px); line-height:min(8vw, 20px);
+    letter-spacing:0; text-align:center;
+    background:rgba(15,23,42,.9); box-shadow:0 1px 5px rgba(0,0,0,.6); }
+  html.mini .ok .camstatus { background:#16a34a; }
+  html.mini .bad .camstatus { background:#dc2626; }
+  html.mini .wait .camstatus { background:#ca8a04; }
+  /* Nothing is being judged. Grey rather than green, red or amber: those three are verdicts about
+     what the camera can see, and this state has no verdict — see CAM_MARK in study.js. */
+  html.mini .idle .camstatus { background:#475569; }
+  /* Everything in the strip is sized in em against #clockbar's own font-size, which is the
+     ONE number that scales it. Drag the window to a passport photo and the whole strip goes
+     with it; drag it out and it grows back, in proportion, at every size in between.
+     It was a dozen independent clamp(min, Nvw, max) values instead, and that failed twice
+     over. Each had its own floor, so they stopped shrinking at different widths and the
+     strip's own proportions came apart. And the floors meant it stopped shrinking at all
+     while the picture kept going — at a small size the clock covered the face it was there
+     to sit under. */
+  html.mini .big { font-size:1.45em; font-weight:800; text-align:center;
+                   margin-top:.1em; line-height:1.12;
+                   font-variant-numeric:tabular-nums; letter-spacing:-.5px; }
+  html.mini .big .sub { font-size:.46em; font-weight:600; color:#64748b; letter-spacing:0; }
+  /* Why the clock stopped. Immediately above the strip, and OUT OF ITS FLOW.
+     It sat in the flow for a while, on the reasoning that the reason the clock has stopped
+     belongs beside the clock rather than at the other end of the window. It still does, and it
+     still is — but in the flow it made the strip a line taller while it had something to say,
+     the window is fitted to the strip's height (see reportShape in study.js), and so the whole
+     window grew and shrank as the message came and went. Every "no face" moved the picture, the
+     clock, the buttons and the window's own bottom edge, and then moved them back. That is a
+     lot of the screen jumping to announce two words.
+     Absolutely positioned, so the strip's offsetHeight never changes and nothing is refitted.
+     The alternative was to reserve the line permanently, which is the same jump paid for once
+     up front: a band of empty space under the clock for the ninety per cent of the time there
+     is nothing to say.
+     bottom:100% puts it directly on top of the strip, and it carries its own dark backing —
+     full width, fading upward — so it reads as the panel growing a line rather than as a
+     caption floating on the picture, and no letter is ever on bare video. Which means it looks
+     almost exactly like the version that was in the flow. It just doesn't move anything. */
+  html.mini #state { display:none; position:absolute; left:0; right:0; bottom:100%;
+                     /* It is drawn on the picture, not in the strip, and the picture is the
+                        window's drag handle. So this one line goes back to passing clicks
+                        through — the strip itself no longer does. */
+                     pointer-events:none;
+                     color:#fca5a5; font-weight:700; text-align:center;
+                     font-size:.72em; letter-spacing:.2px; margin:0;
+                     padding:.08em .34em .02em;
+                     background:linear-gradient(to top, rgba(3,7,18,.95), rgba(3,7,18,.66));
+                     white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  /* The clock's own colour and a ring round the window carry "stopped" now — the bar that
+     used to be recoloured here isn't in this window any more. */
+  html.mini.paused body { box-shadow: inset 0 0 0 2px #dc2626; }
+  html.mini.paused .big { color:#fca5a5; }
+  /* amber = the clock has stopped, but nothing is broken and nothing is being asked of you.
+     Two things wear it: the camera waiting on you, and a video stalled on the network. */
+  html.mini.nudge body { box-shadow: inset 0 0 0 2px #ca8a04; }
+  html.mini.nudge #state { color:#fcd34d; }
+  html.mini.nudge .big { color:#fcd34d; }
+
+  /* ---- a video stalling while the clock keeps RUNNING ---- */
+  /* Its own state, and the whole of it is one colour on one line. No ring and no recoloured clock,
+     which is the point of not reusing .nudge above: the clock is counting perfectly well, and dressing
+     it in the colour of a stopped clock would turn a piece of information into an apparent fault.
+     This is the common case rather than the exotic one. The media gate ships off, so a buffering video
+     normally costs no time at all — and the message about it still has somewhere to go. */
+  html.mini.loading #state { color:#fcd34d; }
+  /* The strip is down to the two things you look at: the clock, and a reason when it stops.
+     Everything else that used to live here is gone from THIS window and only this one —
+     the full study tab still has all of it.
+     The bar: the clock already reads "1:09 / 3:08", so the bar was the same fact drawn
+     twice, and it cost a row plus its margins across the bottom of your own face.
+     The icons: the card tally is a number you read once a session (it is on the settings page
+     and in the popup); the paused and warning icons said what the red line right above them
+     already says in words. */
+  html.mini .progress, html.mini .minibar { display:none !important; }
+  /* pin button sits in the top-right corner, over the camera */
+  html.mini .wrap { position:relative; }
+  /* Under the face dot, which now owns the top-right corner. It is only ever on screen when
+     pinning has actually failed, but when it is, the two must not sit on top of each other. */
+  html.mini #pinfix { position:absolute; top:calc(8% + min(8vw, 20px)); right:4%;
+    z-index:5; margin:0; padding:0;
+    width:min(11vw, 26px); height:min(11vw, 26px); border-radius:6px;
+    font-size:min(6vw, 13px); line-height:min(11vw, 26px); text-align:center;
+    box-shadow:0 2px 10px rgba(0,0,0,.55); }
+  .minibar { display:none; }
+  .minibar .mb { font-size:14px; line-height:1; opacity:.35; cursor:default; user-select:none; }
+  .minibar .mb.ok { opacity:1; }
+  .minibar .mb.bad { opacity:1; filter:grayscale(1) brightness(1.6); }
+  .minibar .mb.warn { opacity:1; cursor:pointer; }
+  .minibar .mb b { font-size:11px; font-weight:800; vertical-align:2px; }
+  /* icon tap popup */
+  .minibar .mb { position:relative; }
+  .minipop { display:none; position:absolute; bottom:24px; left:50%; transform:translateX(-50%);
+    background: var(--card2); border:1px solid var(--line); border-radius:10px; padding:8px 10px;
+    font-size:11px; color: var(--ink2); white-space:nowrap; z-index:10;
+    box-shadow: var(--shadow-l); line-height:1.6; text-align:left; min-width:120px; }
+  .minipop::after { content:''; position:absolute; top:100%; left:50%; margin-left:-5px;
+    border:5px solid transparent; border-top-color: var(--card2); }
+  .minipop b { color: var(--hi); }
+  .minipop .mp-row { display:flex; align-items:center; gap:6px; padding:2px 0; }
+  .minipop .mp-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .minipop .mp-dot.g { background:#4ade80; } .minipop .mp-dot.r { background:#f87171; }
+  .minipop .mp-dot.y { background:#fbbf24; } .minipop .mp-dot.off { background:#475569; }
+  .done { text-align:center; padding: 18px; border-radius: 12px; background: var(--good-l); border:1px solid rgba(var(--good-rgb),.45); color: var(--good); font-weight:700; margin-top: 14px; display:none; }
+  /* The "put it away" line under the message. It held a stepper for adding time as well; that is
+     a ＋ disc in the clock row now, so what is left is one button and the row is a row of one. */
+  .donerow { display:flex; align-items:center; justify-content:center; gap:8px;
+             margin-top:10px; flex-wrap:wrap; }
+  /* A button that still looks pressable but does nothing is worse than one that says so. The
+     hover rule is repeated because .dbtn.sec:hover would otherwise light it up under the
+     pointer anyway. */
+  .dbtn:disabled, .dbtn:disabled:hover { opacity:.42; cursor:default; filter:none;
+                                         background:transparent; color: var(--ink2); }
+  /* The clock and its controls on one line, wrapping only if they truly can't fit. */
+  .clockrow { display:flex; align-items:center; justify-content:center; gap:10px; flex-wrap:wrap; }
+  .tctl { display:flex; align-items:center; gap:5px; }
+  .tctl .ctl[hidden] { display:none; }
+  /* A group with nothing showing in it still contributed one flex gap, which pulled the
+     clock off centre by the width of that gap. +5m / +15m / ✕ only appear once the goal is
+     met, so that group is empty most of the time. */
+  .tctl:not(:has(> .ctl:not([hidden]))) { display:none; }
+  /* Its own button, not .btn: .btn is full-width by design in this column, and a row of
+     those would push the clock off the top of a 200px window. */
+  .dbtn { padding:6px 10px; border-radius:8px; cursor:pointer; font-size:12px; font-weight:700;
+          background: var(--good-fill); color:#fff; border:1px solid rgba(var(--good-rgb),.6); }
+  .dbtn:hover { filter:brightness(1.08); }
+  .dbtn.sec { background:transparent; color: var(--ink2); border-color: var(--line); }
+  .dbtn.sec:hover { background: var(--card2); color: var(--ink); }
+  .dbtn:focus-visible { outline:2px solid var(--good); outline-offset:2px; }
+  /* The two round controls that sit with the clock: pause, and reset-size in the floating
+     window. Drawn glyphs rather than the ⏸ / ▶ characters they used to be — an emoji-family
+     character renders at whatever weight and baseline the platform font feels like, which at
+     this size came out thin, high and off-centre inside its box. These are geometry, so they
+     are the same shape at every size, and they centre because the button is a grid. */
+  /* hidden has to be spelled out, because the rule below sets a display of its own.
+     The `hidden` attribute is not a switch the browser honours unconditionally — it is one
+     ordinary user agent rule, `[hidden] { display:none }`, and ANY author rule that sets display
+     beats it. So `.iconbtn { display:inline-grid }` quietly made every icon button in here
+     permanently visible: the ＋ was marked hidden in the markup and shown by showDoneControls,
+     and it stood in the clock row from the moment the window opened — at "20:00 / 20:05", with
+     the goal plainly unfinished, offering to extend a goal you had not reached yet.
+     The same trap is already noted on #sizeReset a few rules up, which sidesteps it by driving
+     display by id, and on .barask below, which states this rule for the same reason. Three
+     encounters with one browser behaviour is what earns it a note where the class is defined.
+     Order does not matter for this pair — an attribute selector on top of the class is more
+     specific than the class alone — but it is written adjacent so the two are read together. What
+     WOULD beat it is a display set by id, which is how #sizeReset is driven; that one is never
+     given the attribute, and anything in here that is has to avoid that shape. */
+  .iconbtn[hidden] { display:none; }
+  .iconbtn { display:inline-grid; place-items:center; flex:0 0 auto;
+             width:30px; height:30px; padding:0; border-radius:999px; }
+  .iconbtn svg { width:15px; height:15px; display:block; }
+  /* Two glyph vocabularies, so one rule set can serve both: solid shapes for the transport
+     controls (a pause bar or a play triangle is a filled shape, not an outline), strokes for
+     the reset-size frame. */
+  .iconbtn .i-fill { fill:currentColor; }
+  /* Rounded corners on a filled shape without hand-writing arcs for them: stroke the outline
+     in the same colour with a round join. */
+  .iconbtn .i-round { stroke:currentColor; stroke-width:2.4;
+                      stroke-linejoin:round; stroke-linecap:round; }
+  .iconbtn .i-line { fill:none; stroke:currentColor; stroke-width:1.9;
+                     stroke-linecap:round; stroke-linejoin:round; }
+  /* Only one of the two transport glyphs at a time, chosen by the state the button already
+     publishes for assistive tech. study.js therefore sets aria-pressed and nothing else —
+     it used to rewrite textContent, which cannot work now that there is markup inside. */
+  #pauseBtn .i-play { display:none; }
+  #pauseBtn[aria-pressed="true"] .i-play { display:block; }
+  #pauseBtn[aria-pressed="true"] .i-pause { display:none; }
+  /* Compact in the floating window: it is about 200px wide, so the panel loses its padding
+     and the buttons shrink to fit on one line. */
+  /* In em with the rest of the strip, so the buttons you press shrink with the numbers they
+     sit beside instead of growing into them. */
+  /* The finished panel had four rules here, sizing it and its buttons against the strip. It does
+     not appear in this window at all any more — see the MINI branch in renderStatus — so they are
+     gone rather than kept "in case": a rule for something that never renders is a rule nobody can
+     tell is wrong. The panel is still the full study tab's, and its own rules above still size it
+     there. .done itself is display:none until shown, so nothing leaks in. */
+  html.mini .dbtn { padding:.14em .34em; font-size:.58em; border-radius:.22em; }
+  /* Pause and reset-size are the two round controls in the clock row, and they are the two you
+     press while you are studying — so they are sized against the clock rather than against the
+     generic .dbtn above. Left to that rule, pause came out as a 7px square next to a 17px
+     clock, which is a target you aim at rather than press.
+     In em off #clockbar's font-size, like everything else in the strip, so they shrink and grow
+     with the clock they stand beside instead of into it. Nothing here is a percentage of the
+     WINDOW — that is what let the reset button wander out of a strip whose own height is capped.
+     font-size and padding are stated rather than inherited, because `html.mini .dbtn` just
+     above sets both and reaches these two as well: their em sizes would have resolved against
+     .58em, and asymmetric padding would have pushed the glyph off centre inside a circle. */
+  html.mini #clockbar .iconbtn { font-size:1em; padding:0;
+    width:1.45em; height:1.45em; border-radius:999px;
+    color:#e2e8f0; background:rgba(148,163,184,.18);
+    border:1px solid rgba(226,232,240,.26);
+    box-shadow:0 1px 4px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.1);
+    transition:background .12s ease, color .12s ease, transform .1s ease; }
+  html.mini #clockbar #sizeReset { display:inline-grid; }
+  /* ＋ is green, and it is the only coloured control in the strip. It appears at exactly one
+     moment — the moment you finish — so it has no standing state to be confused with, and green
+     is the colour the finished panel right below it is already using. Left grey it read as a
+     third identical disc that had quietly appeared, which is a thing people do not notice. */
+  html.mini #clockbar #addTime {
+    color:#0b1020; background:#4ade80; border-color:rgba(74,222,128,.85);
+    box-shadow:0 1px 6px rgba(74,222,128,.4); }
+  html.mini #clockbar #addTime:hover { background:#86efac; color:#0b1020; }
+  /* The plus is two strokes and reads thinner than the filled pause bars beside it, so it is
+     given the same extra room the diagonal arrow gets, for the same reason. */
+  html.mini #clockbar #addTime svg { width:66%; height:66%; }
+  html.mini #clockbar #addTime .i-line { stroke-width:2.4; }
+  /* ✕ is red, the other coloured control in the strip, and it appears at the same single moment ＋
+     does. The pair is deliberate and so is the pair of colours: ＋ reopens the day, ✕ accepts it.
+     Left grey they would have been two more identical discs quietly appearing in a row that already
+     holds two, which is a change people do not notice.
+     Outlined rather than filled, unlike ＋. Filling it would put a solid red disc next to a solid
+     green one at the bottom of a camera picture, which reads as a traffic light rather than as two
+     buttons — and #state directly above is already red when something is wrong. This way the strip
+     has exactly one solid colour in it at a time. */
+  html.mini #clockbar #camClose {
+    color:#f87171; background:rgba(239,68,68,.16); border-color:rgba(248,113,113,.55); }
+  html.mini #clockbar #camClose:hover {
+    color:#fff1f2; background:#ef4444; border-color:#ef4444; }
+  /* Two crossed strokes lay down even less ink than the plus, so it gets the same extra room and
+     the same extra weight — otherwise it reads as the faintest thing in the row. */
+  html.mini #clockbar #camClose svg { width:62%; height:62%; }
+  html.mini #clockbar #camClose .i-line { stroke-width:2.4; }
+  /* Three rules used to live here, all of them working around the finished controls sharing a
+     line with the clock: hide reset-size, hide the "/ goal" half of the clock, and shrink the
+     buttons to half size. Four controls plus the clock never fit on one line at any window
+     width, so something had to go every time you finished — and what went was legibility.
+     The controls are in the finished panel now, on their own line, so nothing has to give way
+     and the clock row looks the same whether you have finished or not. */
+  html.mini #clockbar .iconbtn svg { width:56%; height:56%; }
+  /* The one exception, and it is a drawing problem rather than a preference. A diagonal glyph
+     reaches its box's corners, so at 56% it was already touching the same circle the pause bars
+     sit comfortably inside — and still read as the smaller of the two, because the eye measures a
+     diagonal by its thickness and the ink it lays down, not by the box it came in. Given a bit
+     more room it matches. There is space for it: this disc holds one thin stroke, not two bars. */
+  html.mini #clockbar #sizeReset svg { width:70%; height:70%; }
+
+  /* ---- the resize grip ---- */
+  /* Out of the full tab entirely, by id, exactly as #sizeReset above is — and the note there about
+     why it has to be an id applies here unchanged: .iconbtn sets a display of its own, so a
+     class-level rule would be settled by whichever line came last in this file rather than by what
+     should win. A full tab has no window of its own to resize, so there is nothing for it to do
+     there. (It is also the only control in this row that is not a <button>, which is why it needs a
+     display at all: a bare div has none of .dbtn's layout.) */
+  #sizeGrip { display:none; }
+  html.mini #clockbar #sizeGrip { display:inline-grid; place-items:center;
+    /* The corner cursor, so the pointer says "resize" before anything is pressed. This is most of
+       what makes the control discoverable: a disc in a row of discs is just another button until
+       the arrow over it changes shape. */
+    cursor:nwse-resize;
+    /* A drag, not a scroll or a page-zoom pinch. Without this a touch or pen drag starting here is
+       taken by the browser as a gesture on the document and the pointermove events never arrive. */
+    touch-action:none;
+    /* Dragging across a control should not sweep a text selection out of the clock beside it. */
+    user-select:none; }
+  /* Held down. The other discs in this row get :active from .dbtn; this one is not a button, so it
+     states its own — and it is worth stating, because a grip gives no other feedback at the moment
+     you take hold of it. Amber rather than brighter grey: it matches the open state of the tools
+     disc in the opposite corner, which is the window's existing way of saying "this is live now". */
+  html.mini #clockbar #sizeGrip:active { color:#fde68a; border-color:rgba(253,230,138,.55); }
+  /* And while the drag is in flight, which outlasts :active whenever the pointer leaves the disc —
+     which it does immediately, because the window is busy resizing out from under it. */
+  html.mini #clockbar #sizeGrip.on { color:#fde68a; border-color:rgba(253,230,138,.55); }
+  /* Two thin diagonals lay down even less ink than the ✕, so the glyph gets the room the other
+     sparse ones in this row get. Same reasoning as #addTime and #camClose above. */
+  html.mini #clockbar #sizeGrip svg { width:66%; height:66%; }
+  html.mini #clockbar #sizeGrip .i-line { stroke-width:2.4; }
+  /* The corner cursor belongs to the whole gesture, not just to the disc it started on. Once the
+     pointer is captured it can be anywhere on the page — usually over the picture, whose own rule is
+     `cursor:grab` — and a grab hand during a resize contradicts what is happening. Stated on the
+     root because that is the element the class goes on, and inherited from there. */
+  html.mini.sizing, html.mini.sizing .camwrap, html.mini.sizing video { cursor:nwse-resize; }
+
+  /* ---- what the reset-size button does, written where this window writes everything ----
+     Every rule here is #state's rule, on purpose: same band across the strip, same backing, same
+     size and weight, same nowrap and ellipsis. Two earlier tries were bordered bubbles hanging off
+     the button, and both looked like a tooltip from some other program that had wandered in — a
+     rounded box with a shadow, in a window whose entire vocabulary is flat text on a dark fade.
+     Only the colour differs, and it differs because it means something: #state is red or amber
+     because it is reporting a problem. This is neither. */
+  /* Nothing in the full study tab: the reset-size button itself is hidden there, because a tab has
+     no window of its own to resize. */
+  .barhint { display:none; }
+  /* display is stated here, not left to the rule above. The base rule is display:none and this is
+     the only place that undoes it — miss it and every other line below is styling something that
+     was never on screen, which is exactly what happened the first time. */
+  html.mini .barhint { display:block;
+                       position:absolute; left:0; right:0; bottom:100%;
+                       pointer-events:none;
+                       color:#dbe4f0; font-weight:700; text-align:center;
+                       font-size:.72em; letter-spacing:.2px; margin:0;
+                       padding:.08em .34em .02em;
+                       background:linear-gradient(to top, rgba(3,7,18,.95), rgba(3,7,18,.66));
+                       white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+                       /* Not display:none — a hidden-by-display element cannot transition, which is
+                          how the delay below is done, and the trap this file's camera menu already
+                          fell into once. */
+                       opacity:0; visibility:hidden;
+                       /* Above #state, because the two share this line and only one can have it.
+                          See the rule that stands #state down while this is up. */
+                       z-index:6;
+                       /* The delay is the one manner worth keeping from a native tooltip: without
+                          it the band flashes across the window every time the pointer crosses this
+                          button on its way to pause. */
+                       transition:opacity .12s ease .38s, visibility .12s ease .38s; }
+  /* Turned on by a class rather than by a :has() selector on the button, because there is more
+     than one button with something to say now and the band has to carry a DIFFERENT sentence for
+     each. CSS can read an attribute off the element it is styling but not off a cousin, so the
+     text is copied across in study.js — see the data-tip binding there. One band, not one per
+     button: they share a line, and only one of them can be hovered at a time anyway. */
+  html.mini .barhint.on { opacity:1; visibility:visible; }
+  /* One line, one message. The band's backing fades to 66% at the top, so a red "No face" behind it
+     would show through as a ghost rather than be replaced.
+     visibility, not display: study.js drives #state with an inline display, and an inline style
+     beats a stylesheet — this would have needed !important to win, which is a fight that did not
+     need starting. The reason line comes back the moment the pointer leaves. */
+  html.mini #clockbar:has([data-tip]:hover) #state,
+  html.mini #clockbar:has([data-tip]:focus-visible) #state { visibility:hidden; }
+  /* ---- "how long in total?", in the same band ----
+     Every geometry rule here is .barhint's, so the two occupy exactly the same strip and cannot
+     disagree about where that is. What differs is that this one takes input, so it is a flex row
+     and it must NOT be pointer-transparent. */
+  .barask { display:none; }
+  html.mini .barask { display:flex; align-items:center; justify-content:center; gap:.34em;
+                      position:absolute; left:0; right:0; bottom:100%;
+                      padding:.16em .3em; margin:0;
+                      background:linear-gradient(to top, rgba(3,7,18,.97), rgba(3,7,18,.86));
+                      font-size:max(11px, .5em); line-height:1.3; letter-spacing:0;
+                      color:#e8eef8; white-space:nowrap;
+                      /* Above the hint and the reason line, both of which live here too. */
+                      z-index:9; }
+  /* The attribute alone cannot win against the display:flex above — [hidden] only carries the
+     user agent's display:none, and any author rule beats it. Stated explicitly, because the
+     JavaScript drives this with el.hidden and would otherwise be toggling nothing at all. */
+  html.mini .barask[hidden] { display:none; }
+  /* One object: the field and its unit read as a single value rather than a box beside a word. */
+  html.mini .askwrap { display:inline-flex; align-items:baseline; gap:.15em;
+                       padding:.1em .34em; border-radius:.4em;
+                       background:rgba(148,163,184,.2);
+                       border:1px solid rgba(226,232,240,.28); }
+  html.mini .askin { width:2.9em; padding:0; margin:0; border:0; background:transparent;
+                     color:#fff; font:inherit; font-weight:800; text-align:right;
+                     /* The spinners are the wrong control at this size — two arrows a couple of
+                        pixels tall, in a window you are meant to be able to shrink. The field is
+                        typed into, and ＋ itself is the coarse adjustment. */
+                     -moz-appearance:textfield; appearance:textfield; }
+  html.mini .askin::-webkit-outer-spin-button,
+  html.mini .askin::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+  html.mini .askin:focus { outline:none; }
+  html.mini .askwrap:focus-within { border-color:#4ade80; box-shadow:0 0 0 1px rgba(74,222,128,.5); }
+  html.mini .askunit { font-weight:600; color:#94a3b8; }
+  html.mini .askbtn { font:inherit; font-weight:800; line-height:1; cursor:pointer;
+                      padding:.16em .42em; border-radius:.4em;
+                      color:#e2e8f0; background:rgba(148,163,184,.2);
+                      border:1px solid rgba(226,232,240,.28); }
+  html.mini .askbtn.ok { color:#0b1020; background:#4ade80; border-color:rgba(74,222,128,.85); }
+  html.mini .askbtn:hover { background:rgba(226,232,240,.34); }
+  html.mini .askbtn.ok:hover { background:#86efac; }
+  /* A total that is not higher than the one you already have adds nothing, so the button says so
+     rather than swallowing the press. See paintAsk. */
+  html.mini .askbtn.ok:disabled, html.mini .askbtn.ok:disabled:hover {
+    opacity:.4; cursor:default; background:#4ade80; }
+  /* Only one thing may own this line. While the question is up, the reason line and the hint
+     stand down — the hint especially, or hovering ＋ would write a caption underneath a dialogue
+     about the same button. */
+  html.mini #clockbar:has(#addAsk:not([hidden])) #state,
+  html.mini #clockbar:has(#addAsk:not([hidden])) .barhint { visibility:hidden; }
+  /* With no picture there is nothing above the strip to overlay, so the question goes where
+     #state goes in this mode — see the .barhint rule beside it, same reasoning. */
+  html.timeronly .barask { top:auto; bottom:0; background:var(--desk); }
+
+  @media (prefers-reduced-motion: reduce) {
+    html.mini .barhint { transition:none; }
+  }
+
+  /* ---- the same window with no camera in it: the clock, and nothing else ----
+     This window used to exist only when the camera did, because one switch owned both. Turn the
+     camera off and there was nothing on screen while you studied saying whether the clock was
+     running — which is the one thing this window is for. So it can come up without a camera, and
+     then it is the strip and nothing else.
+     Everything the camera owns goes, including .camwrap itself: the picture, the markers, the
+     face dot and the switches that sit on the picture. The window is pinned above Anki in this
+     mode too — same title, see study.js — because a clock Anki covers up is no clock. */
+  html.timeronly .camwrap { display:none !important; }
+  /* Back into the flow. In camera mode the strip is absolutely positioned over the bottom of the
+     picture; with no picture there is nothing to float over, and leaving it pinned to the bottom
+     would put the clock at the foot of an otherwise empty window.
+     relative rather than static, which sits in the flow in exactly the same place — the offsets
+     inherited from the mini rule resolve to no shift at all — but keeps this element as the
+     containing block for the two captions that hang off it, #state and .barhint. Under static they
+     would have latched onto whatever positioned ancestor they found next and appeared somewhere
+     else entirely in the window. */
+  html.timeronly #clockbar { position:relative; }
+  /* The fade from picture into panel. There is no picture to fade out of. */
+  html.timeronly #clockbar::before { display:none; }
+  /* The strip is the handle now, and the cursor is the whole affordance — so unlike in camera
+     mode, where the strip deliberately is NOT draggable, here it must look like it is. */
+  html.timeronly #clockbar { cursor:grab; }
+  html.timeronly.dragging, html.timeronly.dragging #clockbar { cursor:grabbing; }
+  html.timeronly #clockbar button { cursor:pointer; }
+  /* The reason line moves into the flow, under the clock, and keeps its place even when it has
+     nothing to say — see the note in paintClock. min-height rather than a blank space, so an
+     empty line is exactly as tall as a full one and the window never twitches. */
+  html.timeronly #state { position:static;
+                          min-height:1.2em; margin:0; padding:.04em .34em 0;
+                          background:none; color:#fca5a5; }
+  html.timeronly.nudge #state { color:#fcd34d; }
+  /* The reset-size caption follows #state down here, and it has to be told to, because the two are
+     positioned by different means in this mode. In camera mode #state is out of the flow and the
+     caption sits at bottom:100% — on top of the strip, over the picture. Here #state is back IN the
+     flow, so it is part of the strip's own height and there is nothing above the strip but the edge
+     of the window, where overflow:hidden would have cut the caption off completely.
+     bottom:0 lands it on the line #state occupies, which is the same swap as in camera mode. Flat
+     --desk rather than the fade, because in this mode it is replacing a line inside a solid panel
+     rather than lying over a photograph. */
+  html.timeronly .barhint { top:auto; bottom:0; background:var(--desk); }
+  /* Nothing is behind the strip any more, so the shadow that made it read as glass over a picture
+     has nothing to sit on, and its own gradient can be flat. */
+  html.timeronly #clockbar { box-shadow:none; background:var(--desk); }
+  html.mini #clockbar .iconbtn:hover { background:rgba(226,232,240,.32); color:#fff; }
+  html.mini #clockbar .iconbtn:active { transform:scale(.9); }
+  html.mini #clockbar .iconbtn:focus-visible { outline:2px solid #fbbf24; outline-offset:1px; }
+  /* Paused: the button is now the way OUT of the break, so it stops being one more grey disc
+     and becomes the warm thing you reach for. The ring round the window is red at the same
+     moment (html.mini.paused), so amber here is not a third colour saying a fourth thing —
+     it is the one control that undoes what the red is reporting. */
+  html.mini #clockbar #pauseBtn[aria-pressed="true"] {
+    color:#0b1020; background:#fbbf24; border-color:rgba(251,191,36,.85);
+    box-shadow:0 1px 6px rgba(251,191,36,.45); }
+  /* How fast the clock is running. Sized in em off the strip like everything else in it, so it
+     shrinks with the clock rather than into it. */
+  .pacetag { font-weight:800; font-size:13px; letter-spacing:.2px; color:var(--ink2);
+             padding:1px 5px; border-radius:6px; background:rgba(148,163,184,.18); }
+  .pacetag[hidden] { display:none; }
+  .pacetag.up { color:#0b1020; background:#4ade80; }
+  .pacetag.down { color:#0b1020; background:#fbbf24; }
+  html.mini .pacetag { font-size:.46em; padding:.1em .3em; border-radius:.3em; }
+  html.mini .clockrow { gap:.26em; }
+  html.mini .tctl { gap:.14em; }
+  /* ONE LINE, always, in this window — and this is a guard rather than a preference.
+     The row inherits `flex-wrap: wrap` from the full tab, where wrapping is right: the page is as wide
+     as the browser and a second line costs nothing. Here it costs the window's HEIGHT. The strip's own
+     size is watched (see the ResizeObserver on #clockbar in study.js) precisely so the window can be
+     re-fitted when the strip changes, so a row that wrapped would make the window grow a line — at the
+     exact moment you finished, which is when the two extra controls appear and the row is at its
+     widest. That is the "it resizes itself when I least want it to" failure the comments around
+     #addTime and #sizeReset keep circling.
+     Written here rather than by removing the wrap above, because the full tab genuinely wants it.
+     min-width:0 on the clock is the other half: a flex item will not shrink below its content width
+     without it, so `nowrap` alone would push the last button off the right edge instead of narrowing
+     the number. The clock is the one thing in the row that can afford to lose a few pixels — every
+     other child is a fixed-size disc. */
+  html.mini .clockrow { flex-wrap:nowrap; }
+  html.mini .clockrow .big { min-width:0; }
+  /* Info bubble */
+  .tip { position: relative; display: inline-flex; vertical-align: middle; margin-left: 6px; }
+  .tip > .tip-i { width: 18px; height: 18px; border-radius: 50%; background: var(--card2); color: var(--warn); border: 1px solid var(--line); font-size: 11px; font-weight: 800; line-height: 18px; text-align: center; cursor: help; display: block; }
+  .tip > .tip-i:hover { background: var(--blue); color: var(--on-blue); }
+  /* Fixed + placed by tip.js, so no ancestor's overflow can clip it. */
+  .tip > .tip-box { position: fixed; left: 0; top: 0; z-index: 9999; width: 280px; background: var(--card); color: var(--ink2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font-size: 12px; font-weight: 400; line-height: 1.6; text-transform: none; letter-spacing: 0; text-align: left; box-shadow: var(--shadow-l); opacity: 0; visibility: hidden; transition: opacity .15s, visibility .15s; }
+  .tip:hover > .tip-box, .tip:focus-within > .tip-box, .tip.open > .tip-box { opacity: 1; visibility: visible; }
+  .tip .tip-box b { color: var(--hi); }
+</style>
+</head>
+<body>
+  <!-- A real dialog, declared as one. This covers the whole page (position:fixed,
+       inset:0) and is the first thing you see, but it carried no role, no name and
+       nothing sent focus into it — so Tab walked straight past its two buttons into
+       the content behind the scrim, which is announced to a screen reader while being
+       neither visible nor clickable. study.js focuses the button and handles Escape. -->
+  <div class="gate" id="gate" role="dialog" aria-modal="true" aria-labelledby="gateTitle">
+    <div class="gatecard">
+      <div class="em">🪟</div>
+      <h3 id="gateTitle">Put your camera on top of Anki</h3>
+      <p>Click anywhere to open a small always-on-top window with your face and your clock in it. Drag it wherever you like — it stays visible while you review in Anki.</p>
+      <button class="btn" id="gateBtn">🪟 Float it over Anki</button>
+      <div class="gateerr" id="gateerr"></div>
+      <div class="why">Chrome slows this tab down while it's in the background. The floating window keeps the camera running at full speed, so your time keeps counting.</div>
+      <a class="later" id="gateLater" href="#">Not now — keep it in this tab</a>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="brand">
+      <!-- The extension's mark: Anki's card and stars with a small lock badge.
+           Generated — see tools/make-icons.mjs, which emits icons/mark.svg from
+           the same numbers as the toolbar PNGs. -->
+      <div class="logo"><svg viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="Block Sites Until I Complete ANKI" focusable="false">
+        <defs>
+          <linearGradient id="agCard" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#929292"/><stop offset="1" stop-color="#666666"/>
+          </linearGradient>
+          <linearGradient id="agGloss" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#a4a4a4"/><stop offset="1" stop-color="#8c8c8c"/>
+          </linearGradient>
+          <linearGradient id="agStar" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#0b84f3"/><stop offset="1" stop-color="#c9e8ff"/>
+          </linearGradient>
+          <linearGradient id="agBadge" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#e04a43"/><stop offset="1" stop-color="#a82b25"/>
+          </linearGradient>
+          <clipPath id="agClip">
+            <rect x="4.32" y="1.12" width="23.68" height="28.48" rx="3.68"/>
+          </clipPath>
+        </defs>
+        <rect x="4.32" y="1.12" width="23.68" height="28.48" rx="3.68" fill="url(#agCard)"/>
+        <path d="M4.32 10.23 Q19 10.23 28 19.06 L28 1.12 L4.32 1.12 Z" fill="url(#agGloss)" clip-path="url(#agClip)"/>
+        <path fill="url(#agStar)" stroke="#ffffff" stroke-width="1.76" stroke-linejoin="round" paint-order="stroke" d="M13.13 13.8 L15.52 18.23 L20.55 18.09 L17.08 21.73 L18.77 26.48 L14.23 24.3 L10.24 27.37 L10.91 22.38 L6.75 19.54 L11.7 18.63 Z"/>
+        <path fill="url(#agStar)" stroke="#ffffff" stroke-width="1.47" stroke-linejoin="round" paint-order="stroke" d="M22.21 4.85 L22.62 7.55 L25.21 8.43 L22.77 9.65 L22.73 12.38 L20.81 10.44 L18.21 11.25 L19.46 8.83 L17.88 6.6 L20.58 7.04 Z"/>
+        <circle cx="26.5" cy="26.62" r="4.96" fill="#ffffff"/>
+        <circle cx="26.5" cy="26.62" r="4" fill="url(#agBadge)"/>
+        <path fill="#ffffff" d="M25.06 26.27 V25.98 A1.44 1.44 0 0 1 27.94 25.98 V26.27 H27.18 V25.98 A0.68 0.68 0 0 0 25.82 25.98 V26.27 Z"/>
+        <rect x="24.3" y="26.14" width="4.4" height="2.8" rx="0.72" fill="#ffffff"/>
+      </svg></div>
+      <h1>Anki Study</h1>
+      <span class="grow"></span>
+      <!-- Rendered by study.js through theme.js, so the glyph and the label
+           always agree with the theme that is actually on. -->
+      <span id="themeSlot"></span>
+    </div>
+    <div class="tag">Keep this tab open while you study. <span class="tip" tabindex="0" role="button" aria-label="More information"><span class="tip-i" aria-hidden="true">?</span><span class="tip-box" role="tooltip">Open your <b>Anki app</b> next to this tab and answer cards.<br/><br/>The clock only runs while you're <b>really answering cards</b> and (if you turned it on) the camera can see your face. It stops if you walk away, minimise Anki, or close this tab.</span></span></div>
+    <div class="grid">
+      <div class="card">
+        <h2>📷 Camera <span class="tip" tabindex="0" role="button" aria-label="More information"><span class="tip-i" aria-hidden="true">?</span><span class="tip-box" role="tooltip">Your video <b>never leaves this computer</b>. Nothing is uploaded, recorded or saved.<br/><br/>If you don't see a permission popup, click the camera icon in the address bar and choose <b>Allow</b>.</span></span></h2>
+        <div id="camhome">
+          <div class="camwrap" id="camwrap">
+            <video id="v" autoplay muted playsinline></video>
+            <!-- Live markers drawn over the picture: face box plus a dot on each
+                 eye, green while that eye passes, red while it doesn't. -->
+            <canvas class="camov" id="camov"></canvas>
+            <!-- The three switches fold away behind one button.
+                 They are set-and-forget — you decide once whether you want markers, a beep
+                 and the glow — but they were three permanent discs stacked down the left
+                 edge of a 200px-wide picture, which is a good part of your own face covered
+                 by controls you had already finished with. -->
+            <div class="camtools" id="camtools">
+              <button class="camtog camtoggle" id="camtoolsBtn" type="button"
+                      aria-expanded="false" aria-controls="camtoolsList"
+                      title="Camera options" aria-label="Camera options">
+                <!-- Two sliders. Deliberately not a gear (illegible at 16px) and not three
+                     dots (which reads as "more of the same thing", not "settings"), and it
+                     shares no shape with the three glyphs it opens. -->
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path stroke-width="1.9" d="M3.6 8h4.2M12.6 8h7.8"/>
+                  <circle cx="10.2" cy="8" r="2.3" stroke-width="1.9"/>
+                  <path stroke-width="1.9" d="M3.6 16h8.2M16.6 16h3.8"/>
+                  <circle cx="14.2" cy="16" r="2.3" stroke-width="1.9"/>
+                </svg>
+              </button>
+              <div class="camtoglist" id="camtoolsList">
+            <button class="camtog" id="camtog" type="button" aria-pressed="true"
+                    title="Tracking markers on/off"
+                    aria-label="Tracking markers on or off">
+              <!-- Drawn, not an emoji: an emoji renders thin and off-centre at the
+                   size this button shrinks to in the floating window.
+                   A face held inside tracking corners — the same idea as a phone's
+                   face-unlock glyph, and literally what this button draws on the picture.
+                   Two earlier goes were both wrong: a plain eye said "look at something",
+                   when you are the one being looked at; and corners on their own, with the
+                   eyes hidden in the off state and a diagonal drawn across them, was the
+                   fullscreen icon. The whole glyph now stays put in both states and only
+                   its colour changes — the face is the reason this icon isn't something
+                   else, so it is never the part that goes away.
+                   Thinner strokes than the shared 2.2: there is more inside this one, and
+                   at 16px it closes up otherwise. -->
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path stroke-width="1.9" d="M3.6 8.9V6a2.4 2.4 0 0 1 2.4-2.4h2.9"/>
+                <path stroke-width="1.9" d="M15.1 3.6H18A2.4 2.4 0 0 1 20.4 6v2.9"/>
+                <path stroke-width="1.9" d="M20.4 15.1V18a2.4 2.4 0 0 1-2.4 2.4h-2.9"/>
+                <path stroke-width="1.9" d="M8.9 20.4H6A2.4 2.4 0 0 1 3.6 18v-2.9"/>
+                <path stroke-width="2.1" d="M9.5 10.2v1.5"/>
+                <path stroke-width="2.1" d="M14.5 10.2v1.5"/>
+                <path stroke-width="1.9" d="M9.6 14.9c1.4 1.3 3.4 1.3 4.8 0"/>
+              </svg>
+            </button>
+            <!-- The beep switch belongs here, where you actually hear it, rather
+                 than in a settings card you only open once. -->
+            <button class="camtog sndtog" id="sndtog" type="button" aria-pressed="true"
+                    title="Beep when the camera loses me" aria-label="Beep when the camera loses me, on or off">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M4 9.5h3.2L12 5.2v13.6L7.2 14.5H4z"/>
+                <path class="wave" d="M16 9.2a4 4 0 0 1 0 5.6"/>
+                <path class="wave" d="M18.6 6.6a7.6 7.6 0 0 1 0 10.8"/>
+              </svg>
+            </button>
+            <!-- The glow on Anki's own window. Switched from here for the same reason as
+                 the beep: this is where you are when it matters, and the thing it reports
+                 on is whether the camera can see you. -->
+            <button class="camtog glowtog" id="glowtog" type="button" aria-pressed="true"
+                    title="Glow on Anki's window when time is counting"
+                    aria-label="Glow on Anki's window, on or off">
+              <!-- A window with a shine coming off its corner: the window is the thing
+                   affected, the sparkles are the effect. The first version was a box with
+                   four rays, which is a sun, a brightness slider, or a wifi symbol
+                   depending on who's looking — and with the rays hidden and a line struck
+                   through it, an empty crossed-out box. Nothing here hides or is crossed
+                   out; the colour says which way the switch is set.
+                   The big sparkle deliberately breaks the window's outline, so the two
+                   shapes read as one idea rather than as two things side by side. -->
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path stroke-width="1.9" d="M13 4.4H5.6A2.4 2.4 0 0 0 3.2 6.8v10.8a2.4 2.4 0 0 0 2.4 2.4h10.8a2.4 2.4 0 0 0 2.4-2.4v-7.4"/>
+                <path stroke-width="2" d="M18.4 2.2v5.6M15.6 5h5.6"/>
+                <path stroke-width="1.7" d="M13.6 10.4v2.8M12.2 11.8H15"/>
+              </svg>
+            </button>
+            <!-- The fourth switch: stop the card's video when the clock stops. Here rather than only
+                 in Settings for the same reason as the three above — this is where you are when it
+                 matters, and a lecture running on to an empty chair is something you notice in Anki.
+                 How far it winds back stays on the settings page; a number needs a box and a label,
+                 and neither fits in a row of 20-pixel discs. -->
+            <button class="camtog mptog" id="mptog" type="button" aria-pressed="true"
+                    title="Pause the card's video when the clock stops"
+                    aria-label="Pause the card's video when the clock stops, on or off">
+              <!-- Two pause bars with an arrow curling back to them: stop, and step back. Which is
+                   exactly what the switch does, in the order it does it. The bars are the shape the
+                   clock strip's own pause button uses, so the two read as the same idea. -->
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path stroke-width="2.4" d="M13.4 7.2v9.6M18 7.2v9.6"/>
+                <path stroke-width="1.9" d="M9.4 16.8A6 6 0 1 1 9.4 7.2"/>
+                <path stroke-width="1.9" d="M9.4 3.8v3.4H6"/>
+              </svg>
+            </button>
+            <!-- The fifth switch: start that video again once everything is back in order. It sits
+                 immediately beside the pause it belongs to, because the two are one decision in two
+                 halves and a menu that offers the stop without the start reads as an oversight —
+                 which is exactly how it read: the pause has been switchable from here since it was
+                 added, and its other half was only ever on the settings page.
+                 It does nothing at all while the disc to its left is off, the same as on the settings
+                 page, where this row is a child of that one. Nothing here says so, and deliberately:
+                 greying it out would need a rule that watches the other switch, and the honest
+                 version of that story — "a resume with nothing to resume" — is not worth a second
+                 colour state in a row of six 20-pixel discs. -->
+            <button class="camtog mrtog" id="mrtog" type="button" aria-pressed="true"
+                    title="Start the video again when the clock starts"
+                    aria-label="Start the video again when the clock starts, on or off">
+              <!-- The mirror of the disc before it, drawn as such: a play triangle where that one has
+                   two pause bars, and the arrow curling the other way — forward, into the picture,
+                   rather than back out of it. Same weights and the same 6-radius arc, so the pair
+                   read as one idea taken in two directions rather than as two unrelated glyphs. -->
+              <!-- The arc is the SAME arc as the disc before it, deliberately: same radius, same
+                   endpoints, same left-hand bulge, which is what keeps it clear of the glyph on the
+                   right. Only the direction of travel is flipped — the sweep flag goes with the
+                   reversed start and end, or the curve would bulge right and run straight through the
+                   triangle — so the arrowhead lands at the bottom instead of the top and the whole
+                   thing reads as going round the other way. -->
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path stroke-width="2.2" d="M13.8 7.4 19.6 12l-5.8 4.6z"/>
+                <path stroke-width="1.9" d="M9.4 7.2A6 6 0 1 0 9.4 16.8"/>
+                <path stroke-width="1.9" d="M9.4 20.2v-3.4H6"/>
+              </svg>
+            </button>
+            <!-- The sixth disc, and the only one in the row that is not a switch: it opens the
+                 extension's settings page. It is here because the four above are the settings you can
+                 reach from this window and every other one — the goal, the dials, the sensitivity of
+                 each check — is on a page you have to go and find. Mid-session, in a 200px window
+                 floating over Anki, "go and find it" means the toolbar popup, then Settings, in a
+                 browser window that is behind Anki. One press instead.
+                 A gear, unlike the opener beside it, which deliberately is not one — see the note
+                 there. That reasoning was about the OPENER: a gear on the button that reveals four
+                 switches would have promised a settings panel and delivered four toggles. This button
+                 really does open the settings page, so the gear is the honest glyph, and it is the one
+                 shape everybody already reads as "settings" without being taught.
+                 A HOLLOW ring with six short thick teeth, and both halves of that matter at the ~12px
+                 this button renders at in the floating window. Hollow, because the thing that makes a
+                 cog a cog and not a sun is that you can see through the middle of it — the first
+                 version of this had a small filled-looking centre with eight long thin spokes, which
+                 is a sun, or a brightness slider, which is exactly the confusion the note on the glow
+                 button warns about. Six rather than eight, because at this size eight teeth and their
+                 gaps merge into a fuzzy halo; six stay countable. And the teeth are stroked heavier
+                 than the ring, so they read as part of the wheel rather than as rays leaving it. -->
+            <button class="camtog camlink" id="optbtn" type="button"
+                    title="Open the extension's settings"
+                    aria-label="Open the extension's settings">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <circle cx="12" cy="12" r="6.2" stroke-width="1.9"/>
+                <path stroke-width="2.6" d="M12 5.8V3M12 18.2V21"/>
+                <path stroke-width="2.6" d="M17.4 8.9 19.8 7.5M6.6 15.1 4.2 16.5"/>
+                <path stroke-width="2.6" d="M17.4 15.1 19.8 16.5M6.6 8.9 4.2 7.5"/>
+              </svg>
+            </button>
+              </div>
+            </div>
+            <div class="camstatus" id="camstatus">starting…</div>
+          </div>
+        </div>
+        <div class="camaway" id="camaway">🪟 Your camera and timer are floating in a small always-on-top window.<br/>Drag it anywhere — even on top of Anki.</div>
+        <button class="btn" id="popout">🪟 Float over Anki</button>
+        <div class="floathint" id="floathint">Stays on top of every app, so you can watch your face and the clock while you review.</div>
+      </div>
+      <div class="card">
+        <h2>⏳ Today <span class="tip" tabindex="0" role="button" aria-label="More information"><span class="tip-i" aria-hidden="true">?</span><span class="tip-box" role="tooltip">Big number = time studied today. When it reaches your goal, your locked sites open by themselves.</span></span></h2>
+        <!-- One wrapper round everything about the clock, because in the floating window it
+             becomes a single layer sitting ON the picture rather than a panel bolted under
+             it. The window is a camera window; a separate dark banner below the video made
+             it half camera and half dashboard, and cost that height twice over — once for
+             the banner and once for the picture it pushed up. -->
+        <div id="clockbar">
+        <!-- Controls sit with the clock, because everything here is about the clock: stop it,
+             or give yourself more of it. They were in a panel underneath, which in a 200px
+             window meant scrolling to reach the button that adds five minutes. -->
+        <div class="clockrow">
+          <!-- Pause sits BEFORE the number, the way a stopwatch does: the control that stops
+               the clock reads as part of the clock rather than as another button in the row
+               of things that follow it. -->
+          <div class="tctl">
+            <button class="dbtn sec ctl iconbtn" id="pauseBtn" type="button"
+                    title="Pause the session" aria-label="Pause the session" aria-pressed="false">
+              <!-- Two bars, and a triangle for the other half of the switch. Drawn rather than
+                   the ⏸ / ▶ characters this was: those come out of a platform emoji font, so
+                   the weight, the size and the baseline were all somebody else's decision and
+                   the glyph sat high and thin in the middle of the button. -->
+              <svg class="i-pause i-fill" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <rect x="6.4" y="4.6" width="4.1" height="14.8" rx="1.7"/>
+                <rect x="13.5" y="4.6" width="4.1" height="14.8" rx="1.7"/>
+              </svg>
+              <svg class="i-play i-fill i-round" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <!-- A plain triangle, rounded by stroking it in its own colour (.i-round) —
+                     so its corners match the radius on the pause bars instead of being three
+                     needle points beside two soft rectangles. -->
+                <path d="M8 6.7 L16.2 12 L8 17.3 Z"/>
+              </svg>
+            </button>
+          </div>
+          <div class="big"><span id="spent">0m 00s</span> <span class="sub">/ <span id="required">0m</span></span></div>
+          <!-- How fast the clock is running, when it is not running at 1×. Beside the clock it is
+               about, because the whole point of it is to connect "I straightened up" to "the number
+               went up" — a goal that quietly arrives sooner than the wall clock says is a bug until
+               something on screen explains it.
+               Shipped hidden and only shown while the feature is on AND a face is being seen. See
+               paintPaceTag; a multiplier next to a stopped clock is a promise about nothing. -->
+          <span class="pacetag" id="pacetag" hidden>1.0×</span>
+          <!-- Five more minutes, beside the clock it changes.
+               This has moved three times, and the reasons are worth keeping. It began as two
+               fixed buttons in this row, +5m and +15m, which had to be shrunk to fit and made
+               the row wrap — and a wrapping row makes the strip a line taller, so the whole
+               window grew at the moment you finished. Then it became a −/+N m/+ stepper on its
+               own line inside the green panel, which read well but put the one control you
+               reach for at that moment in a block underneath, away from the number it is about.
+               Now it is one round button in the row, the same disc as pause and reset-size, and
+               it adds five minutes a press. Round and iconic is what lets it live here: it
+               costs the width of a disc instead of the width of a phrase, so the row cannot
+               wrap and the window cannot grow. The amount is not on the button either — pressing
+               it opens #addAsk below, where you type the total you want; which is also why the
+               remembered camAddMinutes setting is gone.
+               A direct child of the row, not a member of either .tctl group, for the same
+               reason as reset-size beside it: those groups hide themselves when they hold
+               nothing visible, and this is not one of the .ctl buttons that decides that. -->
+          <button class="dbtn sec iconbtn" id="addTime" type="button" hidden
+                  data-tip="Study longer today"
+                  aria-expanded="false"
+                  aria-label="Study longer today">
+            <!-- A plain plus, drawn as two strokes rather than set as the character "+". The
+                 character is centred on its own font metrics, not on the disc, and at this size
+                 it sat visibly high and thin next to the geometric glyphs either side of it. -->
+            <svg class="i-line" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M12 5.6V18.4M5.6 12H18.4"/>
+            </svg>
+          </button>
+          <!-- Put the window back to its default size. A direct child of the row rather than a
+               member of either .tctl group: it belongs to the WINDOW, not to the clock, and the
+               groups hide themselves when they hold nothing visible — which would have taken
+               this with them, since it is not one of the .ctl buttons that decides that.
+               display:none in the full tab, and a display:none flex child contributes no gap,
+               so the clock stays centred there. -->
+          <!-- No title=. The browser's own tooltip appears AT the pointer, and this window is a
+               200px strip in a corner of the screen, so the bubble came up hard against the arrow
+               with the arrow sitting on its first word — "Reset" was unreadable. Where a native
+               tooltip goes is the operating system's decision and there is no way to ask for a
+               different spot, so the only fix is to stop using one. What replaces it is the
+               #sizeHint band below, written the same way this window writes "No face" and "Switch
+               to Anki". aria-label stays for screen readers, which is what it was always for. -->
+          <button class="dbtn sec iconbtn" id="sizeReset" type="button"
+                  data-tip="Reset to default size"
+                  aria-label="Reset the window to its default size">
+            <!-- One diagonal double-headed arrow, corner to corner. It is the same glyph the
+                 operating system puts under the cursor on a window's corner grip, so it reads as
+                 "size" without needing to be learned.
+                 Two earlier attempts were busier and both lost: first a big frame, a small frame
+                 and a single arrow — three objects for one idea; then two arrows collapsing onto a
+                 frame in the middle. This button renders about 12 pixels wide in the floating
+                 window, and at that size anything with an enclosed shape in it turns into a
+                 smudge. A single stroke with a head at each end is the most that survives.
+                 The heads are two perpendicular strokes meeting AT the tip, the same construction
+                 as the pause and play glyphs above, so they hold their shape at any size instead
+                 of relying on a fill that thins out. -->
+            <!-- Drawn corner to corner of the viewBox rather than tucked into the middle of it.
+                 A diagonal only crosses about 70% of a square box for the same nominal size as an
+                 upright glyph, so the first version — 6.2 to 17.8, half the box — rendered visibly
+                 smaller than the pause bars beside it even though both SVGs were the same size.
+                 Filling the box is what makes it match; the round line caps are why it can go all
+                 the way to 4 and 20 without the ends being cut off. -->
+            <svg class="i-line" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <!-- the shaft, top-left corner to bottom-right corner -->
+              <path d="M4.4 4.4 L19.6 19.6"/>
+              <!-- head pointing out to the top-left -->
+              <path d="M4.4 11.2V4.4H11.2"/>
+              <!-- and the same head turned half a circle, pointing out to the bottom-right -->
+              <path d="M19.6 12.8V19.6H12.8"/>
+            </svg>
+          </button>
+          <!-- Put the window away. The finished panel's own ✕ is the full study tab's; this window
+               does not draw that panel at all (see the MINI branch in renderStatus), so until now the
+               little camera window had no close control of its own anywhere in the page.
+               That was survivable only while Chrome's title bar had one. It does not always: the
+               add-on takes the caption buttons off this window when it pins it over Anki — see
+               ankiCamCloseBlocked — and at 176px wide the title bar is a sliver even when they are
+               there. So the window gets its own, in the row where its other two window controls live.
+               Shown at the same moment as ＋, by showDoneControls, and that timing is the feature
+               rather than a convenience. Closing is a REQUEST the worker answers, and while Anki is
+               the window in front it answers no and puts a fresh one straight back up — a camera you
+               can dismiss the second it becomes inconvenient is not a check on anything. So the
+               button appears when the answer is yes: today is finished and there is nothing left to
+               watch. A control that cannot do anything is worse than a missing one.
+               Red, and red for the reason FocusGate's is: ✕ means close everywhere else a person has
+               ever used a computer, and close is red. It is also the one control in this strip that
+               is not about the clock, sitting beside a green ＋ that reopens the day — the two say
+               opposite things and should not be the same colour. -->
+          <button class="dbtn sec iconbtn" id="camClose" type="button" hidden
+                  data-tip="Done — close this window"
+                  aria-label="Done — close the camera window">
+            <!-- Two crossed strokes, drawn rather than set as the character ✕, for the same reason
+                 the plus beside it is drawn: a glyph out of a platform font is centred on its own
+                 metrics rather than on the disc, and at about twelve pixels it sits visibly high and
+                 thin next to geometry. -->
+            <svg class="i-line" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M6.6 6.6 L17.4 17.4M17.4 6.6 L6.6 17.4"/>
+            </svg>
+          </button>
+          <!-- Take hold of this and the window resizes, in proportion, from wherever you drag it to.
+               Last in the row so it lands in the window's bottom-right corner, which is where every
+               operating system puts a resize grip and therefore the only place one needs no label.
+               Why this exists when the window already has borders you can drag: at this size those
+               borders are about four pixels of a window that is mostly picture, so hitting one is a
+               game of patience — and what you get for winning is Chrome reporting the new bounds
+               afterwards, which the worker then has to interpret. That interpretation is what made
+               dragging an edge feel like a negotiation: the width would move, the height would catch
+               up a frame later, and pulling the bottom edge up did nothing at all for a long time.
+               This sends the width instead of leaving it to be deduced, so both dimensions change
+               together and the picture never distorts on the way. See camSetWidth in background.js.
+               A div with role="slider", not a button. Both halves are deliberate. A button announces
+               "press me" and this is not pressed, it is dragged — while a slider is exactly what it
+               is: one number, with a floor and a ceiling, that you move. The role is also what makes
+               the arrow keys legitimate rather than a surprise, which matters because a four-pixel
+               window border cannot be operated from the keyboard at all. FocusGate's corner grip is
+               the same element with the same role, for the same reasons.
+               ALWAYS visible in this window, unlike the reset-size disc beside it, which only appears
+               once there is a non-default size to reset. A control for getting back is only worth
+               showing when you have gone somewhere; a control for going is worth showing always —
+               and a resize affordance nobody can find is the state this window was already in. -->
+          <div class="iconbtn grip" id="sizeGrip" role="slider" tabindex="0"
+               aria-label="Camera window width in pixels"
+               aria-valuemin="120" aria-valuemax="700" aria-valuenow="176"
+               data-tip="Drag to resize · arrows to nudge">
+            <!-- Two short parallel diagonals in the lower-right, the grip marking every window
+                 corner on every desktop has worn for thirty years. Drawn rather than borrowed from a
+                 font for the same reason as the ✕ above it, and kept to bare strokes for the reason
+                 the whole row is: this renders about twelve pixels across, and anything with an
+                 enclosed shape in it becomes a smudge at that size.
+                 Deliberately NOT the same glyph as reset-size next door, which is one long diagonal
+                 with an arrowhead at each end. Two adjacent discs that both say "size" have to be
+                 told apart at a glance: arrows mean "go to", a grip means "hold". -->
+            <svg class="i-line" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M20.2 8.8 L8.8 20.2M20.2 15.4 L15.4 20.2"/>
+            </svg>
+          </div>
+        </div>
+        <div class="sub" id="state">connecting…</div>
+        <!-- What the reset-size button does, said in the same place and the same voice as "No face"
+             and "Switch to Anki" — because that is the one line in this window that explains things,
+             and a second style of explanation floating somewhere else was a second thing to learn.
+             It is a sibling of #state rather than a bubble hanging off the button, which is the only
+             way it can share that line's geometry: #state spans the whole strip and carries its own
+             dark backing, and a ::after inside a 1.45em circle can never be either of those.
+             Only while the pointer is on the button. There is no room in a 200px window for a
+             permanent caption, and this line already has an owner with more to say. -->
+        <!-- Empty on purpose. It is filled from the data-tip of whichever control the pointer is
+             on — see bindTips in study.js. It held one fixed sentence while reset-size was the
+             only control with anything to say; the moment ＋ arrived, a band with the wrong
+             caption in it was worse than no band. -->
+        <div class="barhint" id="sizeHint" aria-hidden="true"></div>
+        <!-- "How long, in total?" — what ＋ opens instead of acting on the spot.
+             In the same band as #state and the hint above, and for the same reason: it is
+             absolutely positioned over the picture, so the strip's height never changes and the
+             window is never refitted. A confirmation that grew the window would move the very
+             button you had just pressed.
+             The number is the TOTAL for today, not the amount to add, because "how long am I
+             studying today" is the thing you actually have an opinion about — you know you want
+             half an hour; you do not know that half an hour is eleven minutes more than where
+             you are. The floor is set to the current goal plus one minute every time this opens,
+             so the field can raise today's target and can never lower it. -->
+        <div class="barask" id="addAsk" hidden>
+          <span class="askwrap">
+            <input class="askin" id="addAskMin" type="number" inputmode="numeric"
+                   min="1" max="1440" step="5" value="5"
+                   aria-label="Total minutes for today's goal"/><span class="askunit">min</span>
+          </span>
+          <button class="askbtn ok" id="addAskOk" type="button"
+                  title="Confirm" aria-label="Confirm the new goal">✓</button>
+          <button class="askbtn" id="addAskNo" type="button"
+                  title="Cancel" aria-label="Cancel">✕</button>
+        </div>
+        <div class="progress"><div id="bar"></div></div>
+        <!-- Only what you need: the cards count, plus an icon per thing that is
+             actually wrong or actually switched on. -->
+        <div class="minibar" id="minibar">
+          <span class="mb" id="mbState" title="Paused" style="display:none">⏸️<div class="minipop" id="popState"></div></span>
+          <span class="mb" id="mbCards" title="Cards today">🃏<b id="mbCardsN">0</b><div class="minipop" id="popCards"></div></span>
+          <span class="mb warn" id="mbWarn" title="" style="display:none">⚠️<b id="mbWarnV"></b><div class="minipop" id="popWarn"></div></span>
+        </div>
+        <!-- Shown when today's goal is finished. The window used to just disappear at this
+             moment, which took away the two things you might want at exactly that moment:
+             a bit more time, or a way to put it away yourself.
+             Inside the clock wrapper, so it rides on the picture with the rest of it. -->
+        <div class="done" id="done">
+          <div class="doneline">✅ Done! Your sites are unlocked</div>
+          <!-- Put it away, and nothing else. "More time" used to live here too, as a stepper on
+               its own line; it is the ＋ disc up in the clock row now — see the note there for
+               why. What is left is the one control that belongs to the panel rather than to the
+               clock: closing the window is about the WINDOW, and there is no number beside it
+               for it to want to be near. -->
+          <div class="donerow">
+            <button class="dbtn sec ctl" id="doneClose" type="button" hidden
+                    title="Close the camera window" aria-label="Close the camera window">✕</button>
+          </div>
+        </div>
+        </div>
+        <div class="row"><span>🔌 Anki</span><span id="conn" class="pill red">checking…</span></div>
+        <div class="row"><span>📷 Face</span><span id="face" class="pill amber">off</span></div>
+        <div class="row"><span>🃏 Cards</span><span id="cards">—</span></div>
+        <div class="pinwarn" id="pinwarn"></div>
+        <button class="btn" id="pinfix" style="display:none"
+                title="Keep this window on top of every app"
+                aria-label="Keep this window on top of every app">📌</button>
+      </div>
+    </div>
+  </div>
+  <!-- Tap-to-open for the info bubbles lives in tip.js. An extension page is not
+       allowed to run an inline script, so it cannot live here. -->
+  <script src="tip.js"></script>
+  <!-- ../lib, not lib: this page lives in src/ and the detector is at the package
+       root, shared with nothing else that loads it by relative path. -->
+  <script src="../lib/pico.js"></script>
+  <script src="study.js"></script>
+</body>
+</html>

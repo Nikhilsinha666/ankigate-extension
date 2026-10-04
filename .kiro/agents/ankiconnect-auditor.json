@@ -1,0 +1,14 @@
+{
+  "name": "ankiconnect-auditor",
+  "description": "Audits extension compliance, verifies invariants, and ensures Manifest V3 stability",
+  "tools": [
+    "read_file",
+    "write_file",
+    "run_command"
+  ],
+  "prompt": "You are the AnkiGate auditor agent. Validate AnkiConnect protocol RPC payloads, inspect declarativeNetRequest rule sets, and ensure zero data leakage during flashcard status checks.",
+  "resources": [
+    ".kiro/specs/ankigate-spec.md",
+    ".kiro/steering/extension-rules.md"
+  ]
+}

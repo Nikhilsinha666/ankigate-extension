@@ -1,0 +1,1092 @@
+/* ---------------------------------------------------------------------------
+   Anki-flavoured skin — layout and shape only. Every colour comes from
+   theme.css, which options.html loads first.
+
+   The point of this file: the extension should feel like part of Anki, not like a
+   browser gadget bolted next to it. So the palette is Anki's own — the desk, the
+   cards, hairline rules, and Anki's blue for anything you can act on. The
+   answer-button colours come from the reviewer: green for "done", amber for
+   "waiting on you", red for "no".
+
+   This page used to hardcode Anki's LIGHT palette here, which is why it was the
+   one light surface in an otherwise dark extension and why dark mode was
+   impossible. Nothing below names a colour: every value is a token, so the same
+   rules render light or dark depending on the one attribute on <html>.
+
+   Two token conventions worth knowing before editing:
+   • --blue-d is a border / hover fill. Accent TEXT sitting on a surface uses
+     --link, because a mid blue that reads well on white disappears on navy.
+   • rgba tints are built from the --*-rgb triplets — rgba(var(--blue-rgb), .3) —
+     so a tint follows the theme instead of being frozen at one theme's channels.
+   --------------------------------------------------------------------------- */
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  background: var(--desk);
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  overflow-anchor: none;
+}
+.wrap { max-width: 940px; margin: 0 auto; padding: 22px 20px 60px; overflow-anchor: none; }
+
+/* ---- title bar ---- */
+.brand { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.brand .logo { width: 34px; height: 34px; display: grid; place-items: center; }
+.brand .logo svg { width: 30px; height: 30px; display: block; }
+.brand h1 { font-size: 19px; font-weight: 700; letter-spacing: -.2px; }
+.grow { flex: 1 1 auto; min-width: 0; }
+.tag { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
+
+/* ---- the little stat strip ---- */
+.score {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--r);
+  padding: 8px 12px; margin-bottom: 14px; box-shadow: var(--shadow); font-size: 12px;
+}
+.score .s1 { display: inline-flex; align-items: center; gap: 6px; color: var(--ink2); }
+.score .s1 + .s1 { border-left: 1px solid var(--line2); padding-left: 12px; }
+.score .s1 b { color: var(--ink); font-weight: 700; }
+.score .s1.ok b { color: var(--good); }
+.score .xpbar { width: 66px; height: 5px; border-radius: 999px; background: var(--line2); overflow: hidden; }
+.score .xpbar > span { display: block; height: 100%; background: var(--blue); border-radius: 999px; }
+
+/* ---- tabs: Anki's own segmented look ---- */
+.tabs { display: flex; gap: 4px; margin-bottom: 14px; border-bottom: 1px solid var(--line); }
+.tab {
+  padding: 8px 14px; font-size: 13px; font-weight: 600; color: var(--ink2);
+  cursor: pointer; border: 1px solid transparent; border-bottom: none;
+  border-radius: 8px 8px 0 0; margin-bottom: -1px; user-select: none;
+}
+.tab:hover { background: rgba(var(--blue-rgb), .1); color: var(--link); }
+.tab.active { background: var(--card); border-color: var(--line); color: var(--link); }
+
+/* ---- cards ---- */
+.card {
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--r);
+  padding: 16px; margin-bottom: 14px; box-shadow: var(--shadow);
+  overflow-anchor: none;
+}
+.card h2 { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.card h2 .ic { font-size: 15px; }
+.chead { display: flex; align-items: flex-start; gap: 10px; }
+.ctile {
+  flex: 0 0 auto; width: 38px; height: 38px; border-radius: 9px; display: grid; place-items: center;
+  background: var(--card2); border: 1px solid var(--line); font-size: 15px; font-weight: 700; color: var(--ink2);
+}
+.ctile.step { background: var(--blue); border-color: var(--blue-d); color: var(--on-blue); }
+.ctile.anki { cursor: pointer; padding: 0; background: var(--card2); }
+.ctile.anki svg { width: 24px; height: 24px; display: block; }
+.ctile.anki[aria-checked="false"] { opacity: .4; filter: grayscale(1); }
+.ctitle { flex: 1 1 auto; min-width: 0; }
+.crow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.csub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.csub b { color: var(--ink); }
+.csub .go { color: var(--good); font-weight: 600; }
+.csub .why { color: var(--warn); font-weight: 600; }
+.emptyhint { font-size: 13px; color: var(--muted); padding: 10px 2px; }
+
+/* ---- the Anki row ---- */
+.ankirow {
+  position: relative; background: var(--card2); border: 1px solid var(--line);
+  border-radius: var(--r); padding: 12px; margin-bottom: 0;
+  overflow-anchor: none;
+}
+.ankirow.done { background: var(--good-l); border-color: rgba(var(--good-rgb), .4); }
+.ankirow.off { opacity: .72; }
+.expand-bar {
+  width: 100%; margin: 0 0 14px; padding: 3px 0; border: 1px solid var(--line); border-top: none;
+  border-radius: 0 0 var(--r) var(--r); background: var(--card2); color: var(--muted);
+  cursor: pointer; display: grid; place-items: center;
+  overflow-anchor: none;
+}
+.expand-bar:hover { background: var(--blue-l); color: var(--link); }
+.expand-bar .chev { transition: transform .15s ease; }
+.expand-bar[aria-expanded="true"] .chev { transform: rotate(180deg); }
+.cbody { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 4px; overflow-anchor: none; }
+.cbody.locked { opacity: .45; pointer-events: none; }
+
+/* the round connection light beside the Anki name */
+.conndot {
+  width: 11px; height: 11px; border-radius: 50%; border: 1px solid var(--line);
+  padding: 0; cursor: pointer; background: var(--muted); flex: 0 0 auto;
+}
+.conndot.on { background: var(--good); box-shadow: 0 0 0 3px var(--good-l); }
+.conndot.off { background: var(--bad); box-shadow: 0 0 0 3px var(--bad-l); }
+/* warn = connected but something needs doing (the add-on isn't installed).
+   busy = deliberately not being checked, so neutral rather than alarming. */
+.conndot.warn { background: var(--warn); box-shadow: 0 0 0 3px var(--warn-l); }
+.conndot.busy { background: var(--muted); box-shadow: none; }
+
+/* The dot says it in colour, this says it in words. A dot on its own left people
+   guessing which colour meant what. */
+/* It re-checks the connection, same as the dot beside it — its tooltip has always said
+   so, and now the click works. The cursor is the affordance; it keeps role="status" so a
+   screen reader still announces the state changing, and the dot remains the keyboard
+   route. See recheckAnki in options.js. */
+.connword { font-size: 11px; font-weight: 700; white-space: nowrap; cursor: pointer; }
+.connword.on { color: var(--good); }
+.connword.off { color: var(--bad); }
+.connword.warn { color: var(--warn); }
+.connword.busy { color: var(--muted); }
+
+/* ---- name links ---- */
+.nmlink, a.nmlink {
+  background: none; border: 0; padding: 0; font: inherit; cursor: pointer;
+  color: var(--link); font-weight: 700; text-decoration: none;
+  display: inline-flex; align-items: baseline; gap: 4px;
+  border-bottom: 1px solid rgba(var(--blue-rgb), .45);
+}
+.nmlink:hover { color: var(--link-h); border-bottom-color: var(--link-h); }
+.nmlink .openmark { font-size: 10px; opacity: .7; }
+.nmlink:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+/* ---- rows of settings ---- */
+.srow {
+  display: flex; align-items: center; gap: 10px; padding: 9px 2px;
+  border-bottom: 1px solid var(--line2); font-size: 13px;
+}
+.srow:last-child { border-bottom: none; }
+.srow.sub { padding: 8px 2px 8px 4px; }
+.srow.kid { padding-left: 24px; }
+/* A sub-option row is only in the layout while its check is on — syncKidRows in
+   options.js sets .hidden off the switch above it. Spelling it out is not optional: the
+   browser's own `[hidden] { display: none }` comes from the user-agent sheet, and any
+   author rule beats that, so .srow's `display: flex` above would keep the row on screen.
+   This replaced `.srow.dim { opacity: .45 }`, which left a wall of rows that looked like
+   settings and did nothing. */
+.srow[hidden] { display: none; }
+.srow .ic { flex: 0 0 auto; width: 20px; text-align: center; }
+.srow .lbl { color: var(--ink2); }
+.srow .lbl.hint { color: var(--muted); font-size: 12px; }
+.srow.head { font-weight: 700; color: var(--ink); }
+.deckrow { flex-wrap: wrap; }
+
+/* ---- "what counts": the whole collection, or a list of decks ----
+   Sits between the Anki row and its folders, always in the layout. Given the same card
+   background as the row above it so the two read as one block — the goal and what the goal is
+   measured over belong together, and a folder is where this used to be lost. */
+.scopebox {
+  background: var(--card2); border: 1px solid var(--line); border-top: none;
+  border-radius: 0 0 var(--r) var(--r); padding: 2px 12px 8px;
+}
+/* Two answers, one of them true. A pair of buttons rather than a switch, because "all of Anki"
+   is a choice someone makes rather than the absence of one. */
+.seg { display: inline-flex; flex: 0 0 auto; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.segbtn {
+  background: transparent; color: var(--ink2); border: none; border-radius: 0;
+  font: inherit; font-size: 12px; font-weight: 600; padding: 6px 11px;
+  cursor: pointer; white-space: nowrap;
+}
+.segbtn + .segbtn { border-left: 1px solid var(--line); }
+.segbtn:hover:not(.on):not(:disabled) { background: var(--blue-l); color: var(--link); }
+.segbtn.on { background: var(--blue); color: var(--on-blue); }
+.segbtn:disabled { opacity: .5; cursor: not-allowed; }
+.segbtn:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
+
+/* ---- the deck tree ----
+   Capped and scrollable: a collection can have hundreds of decks, and a picker that pushes the
+   rest of the page off the bottom of the screen is worse than the flat list it replaced. */
+.decktree {
+  max-height: 230px; overflow-y: auto; margin: 2px 0 6px 24px;
+  border: 1px solid var(--line2); border-radius: 8px; background: var(--field);
+}
+.dtnote { padding: 9px 11px; font-size: 12px; color: var(--muted); }
+/* --d is the depth. One variable rather than a class per level, so nesting can go as deep as the
+   collection does without the stylesheet needing to know how deep that is. */
+.dtrow { display: flex; align-items: stretch; padding-left: calc(var(--d, 0) * 15px); }
+.dtcaret {
+  flex: 0 0 auto; width: 20px; padding: 0; border: none; background: transparent;
+  color: var(--muted); cursor: pointer; font: inherit; position: relative;
+}
+/* Drawn rather than a character: ▸ comes out of a different font at a different weight and
+   baseline on every platform, and at this size that shows. */
+.dtcaret::before {
+  content: ""; position: absolute; top: 50%; left: 6px;
+  width: 5px; height: 5px; margin-top: -3px;
+  border-right: 1.6px solid currentColor; border-bottom: 1.6px solid currentColor;
+  transform: rotate(-45deg); transition: transform .12s ease;
+}
+.dtcaret.open::before { transform: rotate(45deg); margin-top: -4px; }
+.dtcaret:hover { color: var(--ink); }
+.dtcaret.flat { cursor: default; }
+.dtcaret.flat::before { content: none; }
+.dtpick {
+  flex: 1 1 auto; display: flex; align-items: center; gap: 7px; min-width: 0;
+  background: transparent; border: none; border-radius: 6px;
+  font: inherit; font-size: 12px; color: var(--ink2);
+  padding: 5px 8px 5px 2px; cursor: pointer; text-align: left;
+}
+.dtpick:hover:not(:disabled) { background: var(--blue-l); color: var(--link); }
+.dtpick:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
+.dtpick:disabled { cursor: default; }
+.dtbox {
+  flex: 0 0 auto; width: 13px; height: 13px; border-radius: 3px;
+  border: 1.5px solid var(--line); background: var(--card);
+}
+.dtname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* How many decks are inside this one. */
+.dtsubs {
+  flex: 0 0 auto; font-size: 10px; font-weight: 700; color: var(--muted);
+  background: var(--card2); border: 1px solid var(--line2);
+  border-radius: 999px; padding: 0 5px; line-height: 15px;
+}
+/* Picked outright. */
+.dtrow.on .dtpick { color: var(--link); font-weight: 600; }
+.dtrow.on .dtbox { background: var(--blue); border-color: var(--blue-d); position: relative; }
+.dtrow.on .dtbox::after {
+  content: ""; position: absolute; left: 3px; top: 0px;
+  width: 4px; height: 7px; border-right: 2px solid var(--on-blue);
+  border-bottom: 2px solid var(--on-blue); transform: rotate(40deg);
+}
+/* Counted because a parent is picked. Shown, not hidden — "why is this one not tickable" is a
+   question the row should answer itself — but not offered as a choice, because unticking it
+   could not do anything: the worker matches by prefix. */
+.dtrow.via .dtpick { color: var(--muted); }
+.dtrow.via .dtbox { background: var(--blue-l); border-color: rgba(var(--blue-rgb), .5); }
+.dtvia { flex: 0 0 auto; font-size: 10px; color: var(--muted); font-style: italic; }
+
+/* ---- picked decks, in your order ----
+   The cursor is the whole affordance, so it has to be right: grab, then grabbing. The grip dots
+   say the same thing for anyone who reads shapes before they read cursors. */
+.chip.drag { cursor: grab; }
+.chip.drag:active { cursor: grabbing; }
+.chip.drag:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+/* Left behind at reduced opacity while its copy follows the pointer, so you can see the gap it
+   came out of and the gap it is about to go into at the same time. */
+.chip.dragging { opacity: .4; }
+.chip .grip {
+  width: 6px; height: 11px; flex: 0 0 auto; opacity: .5;
+  background-image: radial-gradient(currentColor 40%, transparent 40%);
+  background-size: 3px 3px; background-repeat: repeat;
+}
+.chip.drag:hover .grip { opacity: .9; }
+/* The row is a drop target across its whole width, not just where the chips happen to be, so
+   letting go past the end of the list appends rather than doing nothing. */
+.chiprow { min-height: 26px; }
+
+/* The ⬇ Add-on button rides on the title row, in the space to the right of the
+   Anki name. Slightly tighter than a normal .btn so it doesn't outweigh the
+   heading it sits beside. */
+.addonbtn { padding: 5px 11px; font-size: 12px; }
+
+/* ---- folders inside a card ---- */
+.sect { border: 1px solid var(--line); border-radius: 8px; margin: 8px 0; background: var(--card); }
+.secthead {
+  flex: 1 1 auto; display: flex; align-items: center; gap: 8px; width: 100%;
+  background: var(--card2); border: 0; border-radius: 8px; padding: 9px 10px;
+  font: inherit; font-weight: 600; color: var(--ink); cursor: pointer; text-align: left;
+}
+.secthead:hover { background: var(--blue-l); }
+.secthead .ttl { flex: 1 1 auto; }
+.secthead .cnt {
+  font-size: 11px; font-weight: 700; color: var(--link);
+  background: var(--blue-l); border: 1px solid rgba(var(--blue-rgb), .32);
+  border-radius: 999px; padding: 1px 8px;
+}
+.sectbody { padding: 2px 10px 8px; }
+/* A folder whose title carries a "?": the bubble sits BESIDE the fold button, not inside it.
+   A button nested in a button is invalid markup, and a tip inside the heading would fold the
+   section away every time you reached for the explanation. .secthead is already `flex: 1 1 auto`
+   for exactly this arrangement — only its `width: 100%` has to go, or it claims the whole row and
+   pushes the bubble off the end. */
+.sechead { display: flex; align-items: center; gap: 6px; }
+.sechead > .secthead { width: auto; min-width: 0; }
+.car {
+  width: 17px; height: 17px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--blue); color: var(--on-blue); flex: 0 0 auto; transition: transform .15s ease;
+}
+[aria-expanded="true"] > .car { transform: rotate(90deg); }
+
+/* ---- controls ---- */
+.input {
+  background: var(--field); border: 1px solid var(--line); border-radius: 7px;
+  padding: 7px 9px; font: inherit; font-size: 13px; color: var(--ink); min-width: 0;
+}
+.input:focus { outline: 0; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(var(--blue-rgb), .25); }
+.input:disabled { background: var(--card2); color: var(--muted); }
+.input.grow { flex: 1 1 auto; }
+.input.mini { width: 66px; }
+
+.btn {
+  background: var(--blue); color: var(--on-blue); border: 1px solid var(--blue-d);
+  border-radius: 7px; padding: 7px 13px; font: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer; white-space: nowrap;
+}
+.btn:hover { background: var(--blue-d); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn.sec { background: var(--field); color: var(--ink2); border-color: var(--line); }
+.btn.sec:hover { background: var(--card2); border-color: var(--blue); color: var(--link); }
+.btn.danger { background: var(--bad-fill); color: var(--on-bad); border-color: var(--bad-d); }
+.btn.danger:hover { background: var(--bad-d); }
+.btn.round { padding: 7px 11px; border-radius: 7px; }
+.btn.nudge { animation: nudge 1.1s ease 2; }
+@keyframes nudge {
+  0%, 100% { transform: translateX(0); box-shadow: none; }
+  25% { transform: translateX(-3px); box-shadow: 0 0 0 4px rgba(var(--blue-rgb), .3); }
+  75% { transform: translateX(3px); box-shadow: 0 0 0 4px rgba(var(--blue-rgb), .3); }
+}
+.iconbtn {
+  background: var(--field); border: 1px solid var(--line); border-radius: 6px;
+  width: 26px; height: 26px; display: grid; place-items: center;
+  cursor: pointer; color: var(--ink2); font-size: 13px; padding: 0; flex: 0 0 auto;
+}
+.iconbtn:hover { border-color: var(--blue); color: var(--link); background: var(--blue-l); }
+.iconbtn.mini { width: 22px; height: 22px; font-size: 12px; }
+/* The eye beside the API key box. An SVG rather than the 👁 emoji, which renders at a different size
+   and baseline on every platform and never sits centred in a 26px square. `display: grid` on .iconbtn
+   already centres it; this only has to stop the svg carrying a text baseline of its own. */
+.iconbtn.eye svg { display: block; }
+.iconbtn.eye[aria-pressed="true"] { border-color: var(--blue); color: var(--link); background: var(--blue-l); }
+
+/* ---- the AI result panel -------------------------------------------------
+   Used by the ▶ Test row. A column rather than a row, because it is four different
+   kinds of statement stacked — a score, what it rests on, the model's sentence, and
+   the prompt itself — and squeezing them onto one line is how each one stops being
+   readable. */
+.srow.aiout { align-items: flex-start; }
+.srow.aiout .ic { margin-top: 2px; }
+#ytAiOut { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.aihead { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.aihead .pill {
+  font-size: 12px; font-weight: 800; padding: 2px 9px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--field); color: var(--ink2);
+}
+.aihead .pill.ok { border-color: var(--good); color: var(--good); background: var(--good-l); }
+.aihead .pill.bad { border-color: var(--bad); color: var(--bad); background: var(--bad-l); }
+.airsn { font-size: 12px; color: var(--ink2); font-style: italic; }
+/* One row per piece of evidence. A grid rather than flex, so the three columns line up
+   down the list — a breakdown whose numbers do not align is a breakdown you have to
+   read one row at a time. */
+.aifields { display: flex; flex-direction: column; gap: 2px; }
+.aifield {
+  display: grid; grid-template-columns: 96px 46px 1fr; align-items: baseline;
+  gap: 6px; font-size: 12px; color: var(--ink2);
+}
+/* A field that is switched off still gets its row. Leaving it out would make "off" and
+   "this video has none" look identical, and only one of those is something to change. */
+.aifield.off { opacity: .55; }
+.aifield .afn { font-weight: 700; color: var(--ink); }
+.aifield .afs { font-weight: 800; text-align: right; font-variant-numeric: tabular-nums; }
+.aifield .afs.ok { color: var(--good); }
+.aifield .afs.bad { color: var(--bad); }
+.aifield .afw { color: var(--ink2); }
+.aisee {
+  align-self: flex-start; background: none; border: none; padding: 0;
+  color: var(--link); font: inherit; font-size: 12px; cursor: pointer; text-decoration: underline;
+}
+.aisee:hover { color: var(--ink); }
+/* The prompt. Scrolls rather than grows: it can be fifteen thousand characters of
+   subtitles, and a settings card that becomes six screens tall when you open one
+   disclosure has lost the plot. `pre-wrap` so the fenced blocks in it stay readable. */
+.aisent {
+  margin: 0; max-height: 260px; overflow: auto; white-space: pre-wrap; word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px;
+  line-height: 1.5; color: var(--ink2); background: var(--field);
+  border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px;
+}
+
+/* chunky on/off switch, Anki-blue when on */
+.sw { position: relative; display: inline-block; width: 40px; height: 22px; flex: 0 0 auto; }
+.sw input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.sw .track {
+  position: absolute; inset: 0; background: var(--track-off); border-radius: 999px; transition: background .15s;
+}
+.sw .track::after {
+  content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px;
+  border-radius: 50%; background: var(--knob); transition: transform .15s; box-shadow: 0 1px 2px rgba(0, 0, 0, .25);
+}
+.sw input:checked + .track { background: var(--blue); }
+.sw input:checked + .track::after { transform: translateX(18px); }
+.sw input:disabled + .track { opacity: .45; }
+.sw input:focus-visible + .track { box-shadow: 0 0 0 3px rgba(var(--blue-rgb), .35); }
+
+/* h / m / s wells */
+.timeset {
+  display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto;
+  background: var(--card2); border: 1px solid var(--line); border-radius: 8px; padding: 3px 6px;
+}
+.timeset.plain { background: transparent; border-color: transparent; padding: 0; }
+.timeset.saved { animation: savedflash 1.3s ease; }
+@keyframes savedflash {
+  0% { background: var(--good-l); box-shadow: 0 0 0 3px rgba(var(--good-rgb), .3); }
+  100% { background: transparent; box-shadow: none; }
+}
+.timeset .gicon { font-size: 13px; opacity: .7; }
+.tfld { display: inline-flex; align-items: center; gap: 3px; }
+.tfld .input { width: 52px; text-align: center; padding: 6px 4px; }
+.tfld i { font-style: normal; font-size: 11px; color: var(--muted); font-weight: 600; }
+.numfld { display: inline-flex; align-items: center; gap: 4px; }
+.numfld i { font-style: normal; font-size: 11px; color: var(--muted); }
+
+/* ---- sensitivity dials ----------------------------------------------------- */
+/* Every one of these is a five-step dial, and with the browser's own track there was
+   nothing to say so: it looked like a continuous slide, so "one notch stricter" wasn't a
+   thing you could see or aim for. A dot per level fixes that, and the only way to draw on
+   the track is to take it over from the browser — hence appearance:none and the pieces
+   below.
+
+   --sens-gaps is one less than the number of levels (five levels, four gaps). If a dial
+   with a different number of steps ever appears, set it on that input and everything else
+   follows. */
+.sens { display: inline-flex; align-items: center; gap: 7px; flex: 0 0 auto; }
+.sensend { font-size: 10px; color: var(--muted); }
+.sensval { font-size: 11px; color: var(--link); min-width: 44px; }
+.sens input[type="range"] {
+  --sens-thumb: 14px;
+  --sens-track: 7px;
+  --sens-gaps: 4;
+  /* One level's worth of track: the thumb's travel split between the levels. */
+  --sens-tile: calc((100% - var(--sens-thumb)) / var(--sens-gaps));
+  /* Set by bindSens as you drag: 0 at the left end, 1 at the right. */
+  --sens-fill: .5;
+  /* Near-white on the dark theme, where the track is #0f172a. One mid-grey for both themes
+     was the first attempt and it was too dim to see against that — a dot has to beat the
+     empty track AND the blue fill, and mid-grey loses to both.
+     The halo is the track's own colour, so it disappears into the empty part and becomes a
+     ring where the dot crosses the fill. That ring is what keeps the dots legible on the
+     coloured side without needing a second colour that works there. */
+  --sens-dot: rgba(233, 238, 245, .95);
+  --sens-halo: var(--field);
+  -webkit-appearance: none;
+  appearance: none;
+  width: 104px;
+  height: var(--sens-thumb);          /* the whole strip stays grabbable */
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.sens input[type="range"]::-webkit-slider-runnable-track {
+  /* 7px rather than 5: a dot needs room to be a dot. At 5px a 4px dot filled the track
+     top to bottom and read as a smudge in the line rather than a mark on it. */
+  height: var(--sens-track);
+  border-radius: 999px;
+  background-color: var(--field);
+  /* Top to bottom: the bright dot, its ring, then the coloured fill. Dots above the fill so
+     the levels you have already passed are still countable.
+     The dots line up with where the thumb can actually stop — its travel starts half a
+     thumb in from each end, which is why every measurement here is inset by that. */
+  background-image:
+    radial-gradient(circle at center, var(--sens-dot) 0 1.9px, transparent 2.2px),
+    radial-gradient(circle at center, var(--sens-halo) 0 3.2px, transparent 3.5px),
+    linear-gradient(to right,
+      var(--blue) 0 calc(var(--sens-thumb) / 2 + var(--sens-fill) * (100% - var(--sens-thumb))),
+      transparent 0);
+  background-size: var(--sens-tile) 100%, var(--sens-tile) 100%, 100% 100%;
+  /* Each tile carries one dot at its centre, so the strip is shifted back by half a tile
+     to put the first dot on the first stop rather than half a step past it.
+     Both divisions here are by a plain number — dividing by a variable *expression* is the
+     one bit of calc worth not relying on, and a bad background-position would leave the
+     dots sitting between the levels instead of on them, which is worse than none. */
+  background-position:
+    calc(var(--sens-thumb) / 2 - var(--sens-tile) / 2) 0,
+    calc(var(--sens-thumb) / 2 - var(--sens-tile) / 2) 0,
+    0 0;
+  background-repeat: repeat-x, repeat-x, no-repeat;
+}
+.sens input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: var(--sens-thumb);
+  height: var(--sens-thumb);
+  border-radius: 50%;
+  background: var(--blue);
+  border: 2px solid var(--card);
+  box-shadow: 0 0 0 1px var(--blue-d);
+  /* Centres the thumb on the track, whatever height that is. */
+  margin-top: calc((var(--sens-track) - var(--sens-thumb)) / 2);
+}
+/* Light mode inverts the problem: --field is white there, so the near-white dot above
+   would be invisible on the empty part of the track. Dark slate instead, which also reads
+   against the blue fill. */
+:root[data-theme="light"] .sens input[type="range"] { --sens-dot: rgba(45, 58, 78, .85); }
+.sens input[type="range"]:hover::-webkit-slider-thumb { background: var(--blue-d); }
+.sens input[type="range"]:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+.sens input[type="range"]:disabled { cursor: not-allowed; opacity: .55; }
+
+/* progress hairline */
+.progline { display: flex; align-items: center; gap: 8px; margin-top: 7px; }
+.progressMini {
+  flex: 1 1 auto; height: 7px; border-radius: 999px; background: var(--line2);
+  overflow: hidden; cursor: pointer;
+}
+.progressMini > div {
+  height: 100%; border-radius: 999px; background: var(--blue);
+  transition: width .35s ease, background .35s ease;
+}
+.progressMini > div.zero { width: 0 !important; box-shadow: none !important; }
+
+/* address rows and chips */
+.addrow { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.addrow .gicon { font-size: 15px; }
+/* ---- the list of sites, as a field you look INTO rather than a list that grows ----
+   The height cap is the whole point of this. A hundred entries used to be a hundred chips laid end to
+   end, and the card grew until the rest of the page was somewhere below the fold — so the one list you
+   were trying to read pushed everything else off the screen, and the blocking mode radios, the phone
+   fold and the Save button with them. Capped at about four rows it stays the same size whether it
+   holds three entries or three hundred.
+   `align-content: flex-start` matters only once there is a max-height, and it is easy to leave out:
+   without it the rows space themselves evenly down the box and a half-full list floats in the middle
+   of it. */
+.chipbox { margin-top: 10px; }
+.chiphead { display: flex; align-items: center; gap: 6px; padding: 0 2px 5px; flex-wrap: wrap; }
+.chiphead .grow { flex: 1 1 auto; }
+.chipcount { font-size: 11px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+/* Small pill buttons, quieter than a .btn: this row manages a list, it is not the thing the card is
+   for. */
+.chipbtn {
+  font: inherit; font-size: 10.5px; font-weight: 700; cursor: pointer; white-space: nowrap;
+  padding: 3px 9px; border-radius: 999px;
+  background: var(--card2); color: var(--muted); border: 1px solid var(--line2);
+}
+.chipbtn:hover { color: var(--ink); border-color: var(--line); }
+.chipbtn:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+.chipbtn:disabled { opacity: .4; cursor: not-allowed; }
+.chipbtn:disabled:hover { color: var(--muted); border-color: var(--line2); }
+/* Red for the two that take things away. */
+.chipbtn.danger { color: var(--bad); border-color: rgba(var(--bad-rgb), .3); }
+.chipbtn.danger:hover:not(:disabled) {
+  color: var(--card); background: var(--bad); border-color: var(--bad);
+}
+.chips {
+  display: flex; flex-wrap: wrap; align-content: flex-start; gap: 6px;
+  margin: 0; padding: 8px 10px;
+  background: var(--field); border: 1px solid var(--line2); border-radius: 10px;
+  max-height: 132px; overflow-y: auto;
+  /* Keep the wheel inside the box once it is scrolling, so flicking through three hundred sites does
+     not carry on into the page behind it. */
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.chips::-webkit-scrollbar { width: 9px; }
+.chips::-webkit-scrollbar-track { background: transparent; }
+.chips::-webkit-scrollbar-thumb {
+  background: var(--muted); border-radius: 999px;
+  border: 2px solid var(--field);        /* inset from the box's own edge */
+}
+/* ---- a chip while several are being picked ----
+   Picking is a MODE rather than a permanent row of checkboxes, because a chip already has something to
+   click: its name opens the site. A checkbox beside every one would either fight that link or shrink
+   it. In picking mode the link and the ✕ are both gone from the markup, so the whole chip is the
+   checkbox and there is never a chip with two things to click.
+   Red rather than the usual accent for a selection, because the only thing this selection does is
+   delete. */
+.chip.pick { cursor: pointer; user-select: none; gap: 7px; }
+.chip.pick .tick {
+  display: inline-grid; place-items: center; flex: 0 0 auto; width: 13px; height: 13px;
+  border-radius: 4px; border: 1px solid var(--muted);
+  font-size: 9px; font-weight: 800; line-height: 1; color: var(--card);
+}
+.chip.pick:hover .tick { border-color: var(--ink2); }
+.chip.pick.on {
+  background: rgba(var(--bad-rgb), .16);
+  border-color: rgba(var(--bad-rgb), .5); color: var(--bad);
+}
+.chip.pick.on .tick { background: var(--bad); border-color: var(--bad); }
+.chip.pick:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 12px;
+  background: var(--blue-l); border: 1px solid rgba(var(--blue-rgb), .32);
+  color: var(--link); border-radius: 999px; padding: 3px 9px;
+}
+.chip a.chiplink { color: inherit; text-decoration: none; }
+.chip a.chiplink:hover { text-decoration: underline; }
+.chip .x { cursor: pointer; opacity: .6; font-size: 10px; }
+.chip .x:hover { opacity: 1; color: var(--bad); }
+/* A per-deck time quota that's been met. Green rather than a tick alone, so a row
+   of them can be read at a glance without counting ticks. */
+.chip.ok {
+  background: var(--good-l); border-color: rgba(var(--good-rgb), .38); color: var(--good);
+}
+/* "3m 20s / 25m" inside a deck chip: the same size as the name but quieter, so the
+   deck stays the thing you read first. */
+.chip .dtq { font-style: normal; opacity: .75; font-variant-numeric: tabular-nums; }
+
+/* ---- adding a whole category of sites at once ----
+   Folded away, and that is the point of the fold rather than a space saving: a wall of twenty chips
+   above the one box most people type into would be the wrong first impression of a list. */
+.catbody { padding: 2px 13px 10px; }
+.cathint { font-size: 11.5px; color: var(--ink2); line-height: 1.5; padding: 8px 2px 2px; }
+.cathint b { color: var(--ink); }
+.catchips { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 0 4px; }
+/* A category chip is a toggle, so it looks like one, and its COUNT is the affordance: grey with "+12"
+   while none of that group is on the list, amber part-way through, green with a tick once the whole
+   group is there. The number says what pressing it will do without needing a tooltip to find out —
+   which matters because the same chip both adds and removes. */
+.catchip {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--card2); color: var(--ink2);
+  border: 1px solid var(--line2); border-radius: 999px;
+  padding: 5px 10px; cursor: pointer; font: inherit; font-size: 11.5px;
+}
+.catchip:hover { border-color: var(--line); color: var(--ink); }
+.catchip:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.catchip .cic { font-size: 12px; line-height: 1; }
+.catchip .ccount {
+  font-size: 9.5px; font-weight: 800; letter-spacing: .03em;
+  color: var(--muted); background: var(--field);
+  border-radius: 999px; padding: 2px 6px;
+  font-variant-numeric: tabular-nums;
+}
+.catchip.some { border-color: rgba(var(--warn-rgb), .5); color: var(--warn); }
+.catchip.some .ccount { color: var(--warn); }
+.catchip.full {
+  border-color: rgba(var(--good-rgb), .55); color: var(--good);
+  background: rgba(var(--good-rgb), .08);
+}
+.catchip.full .ccount { color: var(--good); }
+
+/* ---- the AI half of the same picker ---- */
+/* Ruled off from the chips above rather than merely spaced, because the two do genuinely different
+   things: those add a fixed list of addresses, this hands every site you open to a model. They belong in
+   one fold — two answers to one question — but a reader has to be able to see where one ends. */
+.aicat { border-top: 1px solid var(--line2); margin-top: 10px; }
+
+/* An AI chip is BLUE where a static one is green, and that is the whole point of it being a different
+   colour: the two sit inches apart, mean different things, and a green tick on both would say they were
+   the same kind of on. Blue is the extension's own accent, used here for "this is the AI's doing".
+   The badge reads "AI" when off rather than "+12" — there is no count to promise, because what it covers
+   is every site of that kind rather than a list somebody can look at. */
+.catchip.ai .ccount { color: var(--blue); letter-spacing: .04em; }
+.catchip.ai.full {
+  border-color: var(--blue-d); color: var(--blue);
+  background: var(--blue-l);
+}
+.catchip.ai.full .ccount { color: var(--blue); }
+
+/* On the other AI list, so it cannot be on this one. Dimmed and genuinely disabled — the tooltip says
+   where to go and change it. Shown rather than hidden on purpose: a category that silently vanished from
+   one list would look like a missing feature instead of a decision already made. */
+.catchip.taken {
+  opacity: .45; cursor: not-allowed;
+  border-style: dashed;
+}
+.catchip.taken:hover { border-color: var(--line2); color: var(--ink2); }
+/* The inventory badge on the fold's own bar. The ordinary .cnt is emphatic because it means "this is
+   holding you to something", which is true of "3 on" and not of "20 groups exist". */
+.sect .secthead .cnt.quiet {
+  color: var(--muted); background: var(--field); border: 1px solid var(--line2);
+}
+
+/* ---- the live figure beside an unlock gate ---- */
+/* Sits between the label and its number box, so it must not push them around as the
+   value grows: tabular numerals and a right-aligned minimum width keep it still. */
+.gval {
+  flex: 0 0 auto; min-width: 62px; text-align: right;
+  font-size: 12px; font-weight: 700; color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.gval.ok { color: var(--good); }
+.gval.bad { color: var(--bad); }
+/* A gate that is switched on but cannot be measured. Loud on purpose: the gate is
+   standing aside rather than blocking, so silence here would leave someone believing
+   a check is running when it isn't. */
+.gwarn {
+  align-items: flex-start;
+  background: var(--warn-l); border-radius: 8px;
+  padding: 8px 10px; margin: 6px 0;
+}
+.gwarn .lbl { color: var(--ink2); font-size: 12px; line-height: 1.45; }
+/* The same warning, shortened, on the always-visible line under the Anki title —
+   because the folder that explains it is collapsed by default. Clicking it goes to
+   the ⬇ Add-on button, so it has to look clickable. */
+.gnag { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 2px; }
+.gnag:hover { text-decoration-style: solid; }
+
+/* block-mode segmented control */
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; flex: 0 0 auto; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg label {
+  padding: 6px 12px; font-size: 12px; font-weight: 600; color: var(--ink2);
+  background: var(--field); cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
+}
+.seg label + input + label { border-left: 1px solid var(--line); }
+.seg input:checked + label { background: var(--blue); color: var(--on-blue); }
+
+.toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+
+/* ---- the seven weekday switches ----
+   Separate chips rather than the .seg strip above, and that is the whole design decision: .seg is
+   one joined bar for choices where exactly one answer is true, and these are seven independent
+   yes/nos. Joined, a row of seven would have read as "pick a day", which is the opposite of what it
+   does — and there would have been no way to see that five in the middle were on without counting
+   the borders.
+   Real checkboxes underneath, only hidden, so the whole row is reachable and operable by keyboard
+   and each chip is announced with its full day name. */
+.week { display: flex; flex-wrap: wrap; gap: 6px; }
+.week input { position: absolute; opacity: 0; pointer-events: none; }
+.week label {
+  min-width: 46px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--field); color: var(--muted); cursor: pointer;
+  font-size: 12px; font-weight: 700; text-align: center; user-select: none;
+  transition: background .12s ease, color .12s ease, border-color .12s ease;
+}
+.week label:hover { border-color: var(--blue); color: var(--link); }
+/* On is the blue every other "this rule is running" control in here uses. Off is not a red or a
+   struck-through chip: a day off is a choice you made, not a fault, and colouring it like a warning
+   would nag at you every time you opened the page. It is simply not lit. */
+.week input:checked + label { background: var(--blue); color: var(--on-blue); border-color: var(--blue-d); }
+.week input:focus-visible + label { outline: 2px solid var(--blue); outline-offset: 2px; }
+.week input:disabled + label { opacity: .45; cursor: not-allowed; }
+.week input:disabled:hover + label, .week input:disabled + label:hover { border-color: var(--line); color: var(--muted); }
+.week input:disabled:checked + label:hover { color: var(--on-blue); }
+
+/* the "spend time / unlock" banner */
+.flowbar {
+  display: flex; align-items: center; gap: 14px; background: var(--card);
+  border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px;
+  box-shadow: var(--shadow); margin-bottom: 8px;
+}
+.flowbar.done { background: var(--good-l); border-color: rgba(var(--good-rgb), .4); }
+.flowstep { display: flex; align-items: center; gap: 9px; flex: 1 1 0; min-width: 0; }
+.fnum {
+  width: 24px; height: 24px; border-radius: 50%; background: var(--blue); color: var(--on-blue);
+  display: grid; place-items: center; font-size: 12px; font-weight: 700; flex: 0 0 auto;
+}
+.ftitle { font-size: 13px; font-weight: 700; }
+.fsub { font-size: 11px; color: var(--muted); }
+.flowarrow { color: var(--muted); flex: 0 0 auto; }
+.flowprog { height: 8px; border-radius: 999px; background: var(--line2); overflow: hidden; margin-bottom: 4px; }
+.flowprog > div { height: 100%; border-radius: 999px; background: var(--blue); transition: width .35s ease; }
+.flowpct { font-size: 12px; color: var(--muted); text-align: right; margin-bottom: 14px; }
+.flowpct.done { color: var(--good); font-weight: 700; }
+
+/* off banner */
+.offbanner { display: flex; align-items: center; gap: 12px; background: var(--warn-l); border-color: rgba(var(--warn-rgb), .45); }
+.offbanner .offic { font-size: 22px; }
+.offttl { font-weight: 700; font-size: 13px; }
+.offsub { font-size: 12px; color: var(--ink2); }
+.offtxt { flex: 1 1 auto; }
+
+/* locked banner
+   Deliberately quieter than the off banner and the strict one. Those two report that something
+   is not working the way you expect; this reports that the page is behaving exactly as you set
+   it up to. It is here so the password sheet on your first edit is expected rather than a
+   surprise, which is a smaller job than either of them. */
+.lockbar { display: flex; align-items: center; gap: 12px; background: var(--card2); }
+.lockbar .lockbaric { font-size: 20px; }
+.lockbarttl { font-weight: 700; font-size: 13px; }
+.lockbarsub { font-size: 12px; color: var(--ink2); }
+/* Held at its natural width: a flex child is free to shrink, and the words on it are the
+   whole point of it. */
+.lockbar .lockbarbtn { flex: 0 0 auto; }
+
+/* ---- day / month / year, with arrows ----
+   Three fields in the order the date is spoken, each with an arrow above and below it. Not an
+   <input type="date">: that renders in whatever order the browser's locale prefers, so the same
+   control reads 08/20 to one person and 20/08 to another — and this one sets how long you cannot
+   let yourself off, which is the last place for a date that can be misread. */
+.dstep { display: flex; align-items: flex-start; gap: 8px; flex: 0 0 auto; }
+.dpart { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.dpart i { font-style: normal; font-size: 10px; color: var(--muted); letter-spacing: .3px; }
+.dpart .dnum {
+  width: 58px; text-align: center; font-variant-numeric: tabular-nums;
+  /* The browser's own spinner is removed: it is two arrows in the same place as ours, half the
+     size, and only visible on hover. */
+  -moz-appearance: textfield; appearance: textfield;
+}
+.dpart .dnum::-webkit-outer-spin-button,
+.dpart .dnum::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+/* The month, as a name and a number. Its box has to be wider than the two number boxes, because
+   "September · 9" is; its ARROWS do not, and must not be.
+   They were stretched to the full width of the select, which made the middle pair of the six arrows
+   in this row nearly twice the size of the other four. Six controls doing one job, in three
+   different sizes, reads as three different controls. The arrows keep .dspin's own 58px and centre
+   themselves over the wider box — .dpart is a centred column, so that happens on its own. */
+.dpart.wide-m { min-width: 116px; }
+/* One height, stated once, for both kinds of box.
+   Left to themselves a select and a text input do not come out the same height even with identical
+   padding and font — they have different intrinsic content heights — so the month box was 28px
+   beside two 32px neighbours. Everything below it moved up with it: its ▼ sat higher than the other
+   two and the word "month" higher than "day" and "year". The row looked broken, and it was: three
+   columns meant to be read across, none of which lined up.
+   Stated for the pair rather than for the select alone, so neither can drift again. box-sizing is
+   border-box for everything on this page, so this includes the padding and the border. */
+.dpart .dnum, .dpart .dsel { height: 32px; }
+.dpart .dsel {
+  width: 116px; padding: 0 4px;
+  text-align: center; text-align-last: center;
+  cursor: pointer;
+}
+/* The native arrow is dropped: there are already two of ours directly above and below it, and three
+   arrows on one control reads as a mistake. The list still opens on click, on Enter and on Space —
+   removing the marker does not remove the behaviour. */
+.dpart .dsel { -moz-appearance: none; appearance: none; }
+.dpart.off .dsel { cursor: not-allowed; }
+.dspin {
+  width: 58px; height: 15px; padding: 0; line-height: 1;
+  display: grid; place-items: center;
+  font-size: 9px; color: var(--ink2);
+  background: var(--card2); border: 1px solid var(--line); border-radius: 5px;
+  cursor: pointer; user-select: none;
+}
+.dspin:hover { background: var(--blue-l); border-color: var(--blue); color: var(--link); }
+.dspin:active { transform: scale(.94); }
+.dspin:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+/* The date the three boxes add up to, spelled out. Indented to sit under them rather than under
+   the label, because it is their output. */
+.dpreview .lbl { font-size: 12px; }
+/* How long the commitment is, in the colour the rest of this page uses for "this one bites". The
+   date beside it stays grey: the date is where the number lands, the number is the consequence. */
+.dpreview .dred { color: var(--bad); font-weight: 700; }
+/* Switched off: still readable, so you can see which moment is waiting behind the switch, but
+   plainly not in play. Greying the field rather than hiding it — a row that vanishes when you switch
+   it off leaves you guessing whether the numbers you typed survived. */
+.dpart.off { opacity: .45; }
+.dpart.off .dspin { cursor: not-allowed; }
+/* The fourth box in the row, held to the same height as the other three so all four tops and
+   bottoms line up on one pair of lines. */
+.dpart.wide .input { height: 32px; }
+/* And its label pushed down to where the other three sit. The three spinner columns put a ▼ between
+   their box and their label — 15px of arrow plus the column's 2px gap — and this column has no
+   arrow, so its "time" sat 17px above "day", "month" and "year". Four labels in a row, one of them
+   higher than the rest, is the same misalignment as the box heights and just as visible.
+   Reached through the label rather than by padding the column: padding-bottom would add space under
+   the label, which is the wrong side of it. */
+.dpart.wide i { margin-top: 17px; }
+/* The time box sits in the same row as the three spinners and needs the same label underneath, but
+   it is one control rather than a stack — so it lines its box up with theirs instead of growing an
+   arrow it has no use for. */
+.dpart.wide { justify-content: flex-start; padding-top: 17px; }
+/* The rows that continue a setting from the line above start with an empty icon slot, so the
+   controls stay in the same column as the ones they belong to. */
+.srow .ic:empty { visibility: hidden; }
+
+/* ---- info bubbles ---- */
+.tip { position: relative; display: inline-flex; vertical-align: middle; margin-left: 5px; }
+.tip > .tip-i {
+  width: 17px; height: 17px; border-radius: 50%; background: var(--card2); color: var(--link);
+  border: 1px solid var(--line); font-size: 11px; font-weight: 700; line-height: 15px;
+  text-align: center; cursor: help; display: block;
+}
+.tip > .tip-i:hover { background: var(--blue); color: var(--on-blue); border-color: var(--blue-d); }
+/* Fixed + placed by tip.js, so no ancestor's overflow can clip it. */
+.tip > .tip-box {
+  position: fixed; left: 0; top: 0; z-index: 9999; width: 320px;
+  background: var(--card); color: var(--ink2); border: 1px solid var(--line); border-radius: 9px;
+  padding: 11px 13px; font-size: 12px; font-weight: 400; line-height: 1.65; text-align: left;
+  box-shadow: var(--shadow-l); opacity: 0; visibility: hidden; transition: opacity .13s, visibility .13s;
+}
+.tip:hover > .tip-box, .tip:focus > .tip-box, .tip:focus-within > .tip-box, .tip.open > .tip-box {
+  opacity: 1; visibility: visible;
+}
+.tip .tip-box b { color: var(--ink); }
+.tip .tip-box ol, .tip .tip-box ul { margin: 6px 0 0 18px; }
+.tip .tip-box li { margin-bottom: 4px; }
+.kbd {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px;
+  background: var(--card2); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px;
+}
+
+/* ---- status words ---- */
+.st { font-size: 11px; font-weight: 700; border-radius: 999px; padding: 1px 8px; }
+.st.on { background: var(--good-l); color: var(--good); }
+.st.off { background: var(--bad-l); color: var(--bad); }
+.why { color: var(--warn); font-weight: 600; }
+.err { color: var(--bad); font-size: 12px; min-height: 16px; margin-top: 6px; }
+.sr-only {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+/* ---- news ticker under a heading ---- */
+.ticker { overflow: hidden; max-width: 100%; margin-top: 3px; }
+.ticker > span { display: inline-flex; gap: 42px; white-space: nowrap; animation: crawl 26s linear infinite; }
+.ticker i { font-style: normal; font-size: 12px; color: var(--muted); }
+@keyframes crawl { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+/* ---- password screen ---- */
+.lockcard { max-width: 380px; margin: 60px auto 0; }
+/* The quiet lines of explanation on the first-run card: what a password buys you, and what skipping
+   means. Scoped to this card rather than declared as a global `.hint`, because that class name
+   already means something inside a .srow further up and one class with two owners is how a stylesheet
+   starts disagreeing with itself. */
+.lockcard .hint { color: var(--muted); font-size: 12px; line-height: 1.6; }
+
+/* ---- toast ---- */
+.toast {
+  position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%);
+  background: var(--toast-bg); color: var(--toast-ink); border: 1px solid var(--line);
+  border-radius: 8px; padding: 9px 16px;
+  font-size: 13px; max-width: 520px; text-align: center; z-index: 9999;
+  box-shadow: var(--shadow-l); animation: tin .18s ease both;
+}
+@keyframes tin { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+/* A toast carrying a sentence rather than a result. Left-aligned and capped, because a centred
+   paragraph the width of the window is unreadable in a different way from one that is too small. */
+.toast.wide { max-width: 440px; line-height: 1.5; text-align: left; }
+/* Amber-edged: the phone reminder is a thing to be aware of, not a thing that went wrong. */
+.toast.phone { border-color: rgba(var(--warn-rgb), .55); }
+
+/* ---- "type the words" confirm ---- */
+.sheetback {
+  position: fixed; inset: 0; z-index: 10000; display: grid; place-items: center;
+  background: var(--scrim); padding: 20px;
+}
+.sheet {
+  background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px;
+  max-width: 420px; width: 100%; box-shadow: var(--shadow-l);
+}
+.sheettop { display: flex; align-items: center; gap: 9px; margin-bottom: 8px; }
+.sheetic { font-size: 20px; }
+.sheet h3 { font-size: 15px; font-weight: 700; }
+.sheet p { font-size: 13px; color: var(--ink2); margin-bottom: 12px; }
+.sheetlbl { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+.sheet .input { width: 100%; }
+.sheetrow { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.sheethint { flex: 1 1 auto; font-size: 12px; color: var(--muted); }
+
+/* ---- the window's two time boxes, and the clock button on each ----
+   Chrome's own picker indicator is hidden on these two fields rather than left beside ours. Two clock
+   icons on one control is a question nobody should have to answer, and the native one cannot be made
+   to open our dial: it lives in the shadow DOM and its click is not ours to intercept. The FIELD is
+   untouched — still type="time", so typing, the arrow keys and am/pm behave exactly as before.
+   Scoped by id, so every other time box on the page keeps its native picker. */
+.wintime { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; }
+#ankiWinStart::-webkit-calendar-picker-indicator,
+#ankiWinEnd::-webkit-calendar-picker-indicator { display: none; }
+.wclock {
+  background: var(--card2); border: 1px solid var(--line); border-radius: 7px;
+  color: var(--ink2); font-size: 13px; line-height: 1; padding: 5px 7px; cursor: pointer;
+}
+.wclock:hover:not(:disabled) { border-color: var(--blue); color: var(--ink); }
+.wclock:disabled { opacity: .4; cursor: not-allowed; }
+
+/* The two nudge arrows, stacked into one control the height of the field beside them. */
+.wspin { display: inline-flex; flex-direction: column; gap: 1px; flex: 0 0 auto; }
+.wstep {
+  background: var(--card2); border: 1px solid var(--line); color: var(--ink2);
+  /* The glyphs are small and the buttons smaller, so the box is sized by padding and line-height
+     rather than by the text — left to the text they would be two different heights. */
+  font-size: 8px; line-height: 1; padding: 2px 6px; cursor: pointer;
+  /* Rounded on the outside corners only, so the pair reads as one control and not two buttons. */
+  border-radius: 5px 5px 0 0;
+}
+.wstep + .wstep { border-radius: 0 0 5px 5px; }
+.wstep:hover:not(:disabled) { border-color: var(--blue); color: var(--ink); }
+.wstep:active:not(:disabled) { background: var(--blue-l); }
+.wstep:disabled { opacity: .4; cursor: not-allowed; }
+
+/* ---- the round clock ----
+   Sits on .sheetback above, the same backdrop the confirm sheet uses, so there is one answer on this
+   page to "what does a modal look like". */
+.dialbox {
+  background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px;
+  width: 100%; max-width: 300px; box-shadow: var(--shadow-l);
+}
+.dialhead { margin-bottom: 10px; }
+.dialttl { display: block; font-size: 13px; font-weight: 700; color: var(--ink); margin-bottom: 8px; }
+.dialread { display: flex; align-items: center; justify-content: center; gap: 4px; }
+.dialread > b { font-size: 24px; color: var(--muted); }
+/* Tabular figures, or the readout jostles sideways every time a 1 goes past. */
+.dialseg {
+  font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums;
+  background: transparent; border: 1px solid transparent; border-radius: 8px;
+  color: var(--muted); padding: 2px 7px; cursor: pointer;
+}
+.dialseg.on { background: var(--blue-l); border-color: var(--blue); color: var(--ink); }
+.dialap { display: inline-flex; flex-direction: column; gap: 2px; margin-left: 7px; }
+.dialapb {
+  background: transparent; border: 1px solid var(--line); border-radius: 6px;
+  color: var(--muted); font-size: 11px; font-weight: 700; padding: 2px 7px; cursor: pointer;
+}
+.dialapb.on { background: var(--blue); border-color: var(--blue); color: var(--on-blue); }
+
+/* touch-action and user-select both off: this element is dragged, and without them a drag scrolls the
+   page under the sheet and selects the numbers on the way past. */
+.dialface {
+  display: block; width: 100%; max-width: 240px; margin: 4px auto 0;
+  touch-action: none; user-select: none; cursor: pointer;
+}
+.dialbg { fill: var(--field); stroke: var(--line); }
+/* The numbers are painted on, not aimed at. Every pointer event belongs to the face, which is what
+   holds the capture during a drag — a <text> that could be a target of its own would change the
+   cursor as the hand swept past it and invite a stray click that never reached the drag logic. */
+.dialnums { pointer-events: none; }
+.dialhand { stroke: var(--blue); stroke-width: 2; stroke-linecap: round; }
+.dialknob, .dialhub { fill: var(--blue); }
+.dialnum { font-size: 13px; font-weight: 600; fill: var(--ink2); }
+/* The chosen number is drawn over the knob — the group comes after it in the SVG, so it paints on
+   top — which is why this is the on-blue ink rather than the ordinary one. */
+.dialnum.sel { fill: var(--on-blue); font-weight: 800; }
+
+.dialfoot { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.dialhint { flex: 1 1 auto; font-size: 11px; color: var(--muted); }
+
+.wclock:focus-visible, .wstep:focus-visible, .dialseg:focus-visible, .dialapb:focus-visible {
+  outline: 2px solid var(--blue); outline-offset: 2px;
+}
+
+/* ---- the password ask ----
+   One row at the bottom of the window: lock, box, two buttons. No backdrop, nothing dimmed.
+   It was a centred sheet behind a dark scrim, and the scrim was the part that was wrong — it
+   hid the very setting being asked about, and a page going dark is how this file says "are you
+   sure you want to wipe the day", not "type your password".
+   Built like .toast rather than like .sheet, because that is the size of thing it is. Note the
+   keyframes carry the -50% across: an animation with `both` holds the last frame's transform,
+   so leaving it out would drop the centring the moment the animation finished. */
+.pwbar {
+  position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%);
+  z-index: 10000; max-width: calc(100vw - 24px);
+  background: var(--card); border: 1px solid var(--blue); border-radius: 10px;
+  padding: 9px 11px; box-shadow: var(--shadow-l);
+  animation: pwin .14s ease both;
+}
+@keyframes pwin { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@media (prefers-reduced-motion: reduce) { .pwbar { animation: none; } }
+.pwrow { display: flex; align-items: center; gap: 8px; }
+.pwrow .pwic { font-size: 15px; line-height: 1; }
+.pwrow .input { width: 168px; }
+/* Only there when there is something to say — :empty, so nothing reserves a line for a message
+   that is usually absent and the bar stays one row tall. */
+.pwerr { font-size: 12px; color: var(--bad); margin: 6px 0 0 24px; }
+.pwerr:empty { display: none; }
+
+/* ---- the finish line ---- */
+.fgwin {
+  position: fixed; inset: 0; z-index: 10001; display: grid; place-items: center;
+  background: var(--scrim); opacity: 0; transition: opacity .2s;
+}
+.fgwin.show { opacity: 1; }
+.fgwincard {
+  background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 26px;
+  text-align: center; max-width: 400px; box-shadow: var(--shadow-l);
+}
+.fgtrophy { font-size: 44px; }
+.fgwincard h2 { font-size: 18px; font-weight: 700; margin: 8px 0 6px; justify-content: center; }
+.fgwincard p { font-size: 13px; color: var(--ink2); }
+.fgxp { margin: 10px 0; font-size: 13px; font-weight: 700; color: var(--good); }
+.fgparty { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 10002; }
+.fgparty i {
+  position: absolute; top: -14px; width: 8px; height: 13px; border-radius: 2px;
+  animation: fall linear forwards;
+}
+@keyframes fall {
+  to { transform: translateY(110vh) rotate(var(--rot, 360deg)); opacity: .2; }
+}
+
+@media (max-width: 700px) {
+  .chead { flex-wrap: wrap; }
+  .timeset { width: 100%; }
+  .flowbar { flex-direction: column; align-items: stretch; }
+  .flowarrow { display: none; }
+}
+
+/* ---- the password form ----------------------------------------------------- */
+/* One thing on screen at a time. This card used to show two rows of unlabelled
+   password boxes with a small tick button beside each, both there whether you
+   wanted them or not — which read as a puzzle rather than a setting. Now the card
+   is the switch plus one plain button, and the form you asked for opens beneath it
+   with a real label over every box and words on every button. */
+.pwacts { margin-top: 12px; }
+.pwform {
+  margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line);
+  display: grid; gap: 10px; max-width: 340px;
+}
+/* display:grid above would otherwise beat the browser's own [hidden] rule, and both
+   forms start closed. */
+.pwform[hidden] { display: none; }
+.pwform label { display: block; font-size: 12px; font-weight: 600; color: var(--ink2); margin-bottom: 5px; }
+.pwform .input { width: 100%; }
+.pwform .btns { display: flex; gap: 8px; }

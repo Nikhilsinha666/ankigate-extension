@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<title>Block Sites Until I Complete ANKI — Settings</title>
+<!-- theme.css first: it holds the palette every rule in options.css reads from.
+     data-theme on <html> above matches theme.css's default, so the page is
+     already the right colour before theme.js has read the stored preference. -->
+<link rel="stylesheet" href="theme.css" />
+<link rel="stylesheet" href="options.css" />
+<script src="theme.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+  <script src="bars.js"></script>
+  <script src="gates.js"></script>
+  <!-- Which keys are settings, and how to check one coming back in from a file. Shared
+       with the worker, which pulls the same file in with importScripts. -->
+  <script src="settings.js"></script>
+  <!-- What a card is about, and whether a video's title says the same thing. Shared with the
+       worker the same way gates.js is, so the keywords this page shows you are the exact
+       keywords the gate is enforcing — a second implementation here would be a settings page
+       that displays one thing and blocks by another. -->
+  <script src="keywords.js"></script>
+  <script src="tip.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

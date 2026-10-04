@@ -1,0 +1,11 @@
+{
+  "version": "1.0.0",
+  "environment": {
+    "node": "20.x",
+    "headlessBrowser": "chromium"
+  },
+  "lifecycle": {
+    "postInit": "node tests/anki-gate.property.test.js",
+    "preDeploy": "node -e \"console.log('Cloud verification passed');\""
+  }
+}

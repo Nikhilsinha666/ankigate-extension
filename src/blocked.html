@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<title>Blocked until Anki is done</title>
+<!-- theme.css holds the palette; the rules below only use its tokens, so this
+     page follows dark / light with the rest of the extension. -->
+<link rel="stylesheet" href="theme.css" />
+<script src="theme.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--desk-grad); color: var(--ink); }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 60px 24px; min-height: 100%; display: flex; flex-direction: column; justify-content: center; }
+  .topbar { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+  .grow { flex: 1 1 auto; min-width: 0; }
+  .pill { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 999px; background: var(--blue-l); color: var(--link); font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+  /* The site you asked for: its own icon, then its name — said once, right here.
+     Nothing below repeats it. */
+  .site { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
+  .siteicon { flex: 0 0 auto; width: 46px; height: 46px; border-radius: 13px; background: var(--card2);
+    border: 1px solid var(--line); display: grid; place-items: center; overflow: hidden; }
+  /* object-fit, because a site's own favicon.ico isn't always square and a squashed
+     logo looks worse than no logo. */
+  .siteicon img { width: 28px; height: 28px; display: block; object-fit: contain; }
+  .siteicon .ltr { font-size: 20px; font-weight: 800; color: var(--link); text-transform: uppercase; }
+  h1 { font-size: 38px; font-weight: 800; line-height: 1.1; color: var(--hi); letter-spacing: -.5px; word-break: break-word; min-width: 0; }
+  /* "is blocked" is the verdict, not the subject — quieter and lighter, so the
+     hostname still carries the line. */
+  h1 .isblocked { color: var(--ink2); font-weight: 600; }
+  /* Only used for the states that need words: finished, or no goal set. The time
+     itself lives in the row below and is never said twice. */
+  .lead { font-size: 16px; line-height: 1.55; color: var(--ink); margin-bottom: 26px; max-width: 60ch; }
+  .lead:empty { display: none; }
+  .lead b { color: var(--hi); font-weight: 700; }
+  .lead .goal { color: var(--link); font-weight: 700; }
+  /* The card's keywords, when a video was refused for not mentioning them. Set as chips rather
+     than left as bold words in the sentence because they are a LIST you scan — "would a title with
+     one of these in it work?" — and running them together as prose makes a four-word list read as
+     a phrase, which is the one thing they are not. */
+  .lead .ytkw {
+    display: inline-block; font-weight: 700; font-size: 14px; color: var(--link);
+    background: rgba(127, 127, 127, .14); border-radius: 6px;
+    padding: 1px 8px; margin: 2px 3px 2px 0; white-space: nowrap;
+  }
+  /* The card you are on, under the first sentence — the same box the cover over YouTube's player
+     shows. Four lines at most: it is a reminder of the card, not a copy of it. */
+  .lead .ytcard {
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden;
+    max-width: 460px; margin: 12px 0 10px; padding: 8px 12px;
+    background: var(--blue-l); border: 1px solid var(--line); border-radius: 10px;
+    font-size: 14px; line-height: 1.45; font-weight: 600; color: var(--ink); overflow-wrap: anywhere;
+  }
+  .lead .ytcard-l {
+    font-size: 11px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase;
+    color: var(--link); margin-right: 8px;
+  }
+  /* ---- the AI's score, field by field ----
+     Shown under the lead paragraph when a video was refused by the AI rather than by the words.
+     A block and not more clauses in that sentence, because five numbers in prose is not something
+     anybody reads — and the whole value of having them is that they can be SCANNED: the row that
+     disagrees with the others is the one that explains the refusal. */
+  .lead .ytaif {
+    display: flex; flex-direction: column; gap: 3px;
+    margin: 12px 0 0; padding: 10px 12px;
+    background: rgba(127, 127, 127, .1); border: 1px solid var(--line); border-radius: 12px;
+    max-width: 460px;
+  }
+  .lead .ytaif-h {
+    font-size: 11px; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px;
+  }
+  /* Four columns, aligned down the list: the field, a small bar of its own score with your mark on
+     it, the figure, and what was read. A breakdown whose numbers don't line up is one you have to
+     read a row at a time, which is exactly what a single overall percentage already was. */
+  .lead .ytaif-r {
+    display: grid; grid-template-columns: 96px 96px 46px 1fr; gap: 8px;
+    align-items: center; font-size: 12px; font-weight: 400; color: var(--ink2);
+  }
+  .lead .ytaif-b { position: relative; display: block; height: 6px; border-radius: 999px; background: rgba(127, 127, 127, .22); }
+  .lead .ytaif-b > i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; }
+  .lead .ytaif-b > i.ok { background: var(--good); }
+  .lead .ytaif-b > i.bad { background: var(--bad); }
+  .lead .ytaif-b > b { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--warn); }
+  /* A field you switched off keeps its row. Dropping it would make "off" and "this video has none"
+     look identical, and only one of the two is something to change. */
+  .lead .ytaif-r.off { opacity: .55; }
+  .lead .ytaif-n { font-weight: 700; color: var(--ink); }
+  .lead .ytaif-s { font-weight: 800; text-align: right; font-variant-numeric: tabular-nums; }
+  .lead .ytaif-s.ok { color: var(--good); }
+  .lead .ytaif-s.bad { color: var(--bad); }
+  .lead .ytaif-w { color: var(--muted); font-size: 11px; }
+  /* ---- the score on a line: 0 to 100, your mark, where the video landed ----
+     The same meter the cover on YouTube draws. Two numbers in a sentence are two things to hold and
+     compare; on a line they are one picture — the bar you set (the amber mark, the passing stretch
+     after it hatched), how far the video got, and the gap. See ytAiMeterHtml. */
+  .lead .ytm { max-width: 460px; margin: 16px 0 4px; line-height: 1.2; font-variant-numeric: tabular-nums; }
+  .lead .ytm-rail { position: relative; padding-top: 19px; }
+  .lead .ytm-track {
+    position: relative; height: 10px; border-radius: 999px;
+    background: rgba(127, 127, 127, .22); box-shadow: inset 0 1px 2px rgba(0, 0, 0, .25);
+  }
+  .lead .ytm-zone {
+    position: absolute; top: 0; bottom: 0; border-radius: 0 999px 999px 0;
+    background: repeating-linear-gradient(135deg, rgba(var(--good-rgb), .26) 0 5px, rgba(var(--good-rgb), .08) 5px 10px);
+  }
+  .lead .ytm-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; }
+  .lead .ytm-fill.bad { background: var(--bad); }
+  .lead .ytm-fill.ok { background: var(--good); }
+  .lead .ytm-tick { position: absolute; top: -5px; bottom: -5px; width: 2px; margin-left: -1px; border-radius: 2px; background: var(--warn); }
+  .lead .ytm-knob {
+    position: absolute; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px;
+    box-sizing: border-box; border-radius: 50%; border: 2px solid var(--card);
+  }
+  .lead .ytm-knob.bad { background: var(--bad); }
+  .lead .ytm-knob.ok { background: var(--good); }
+  .lead .ytm-need { position: absolute; top: 0; white-space: nowrap; font-size: 11px; font-weight: 800; line-height: 14px; color: var(--warn); }
+  .lead .ytm-low { position: relative; height: 16px; margin-top: 6px; font-size: 11px; line-height: 16px; }
+  .lead .ytm-end { position: absolute; top: 0; left: 0; font-weight: 700; color: var(--muted); }
+  .lead .ytm-end.ytm-hi { left: auto; right: 0; }
+  .lead .ytm-hide { visibility: hidden; }
+  .lead .ytm-got { position: absolute; top: 0; white-space: nowrap; font-weight: 800; }
+  .lead .ytm-got.bad { color: var(--bad); }
+  .lead .ytm-got.ok { color: var(--good); }
+  /* A label sits centred on its mark, or held inside the line at either end. */
+  .lead .ytm-al-c { transform: translateX(-50%); }
+  .lead .ytm-al-r { transform: translateX(-100%); }
+  .lead .ytm-say { margin-top: 5px; font-size: 13px; color: var(--ink2); }
+  .lead .ytm-say.bad b { color: var(--bad); }
+  .lead .ytm-say.ok b { color: var(--good); }
+
+  /* Only shown when the address can't be shortened to a hostname, so it never
+     repeats the headline. */
+  .from { font-size: 12px; color: var(--muted); margin-bottom: 26px; word-break: break-all; }
+  .from:empty { display: none; }
+  .card { background: var(--card-glass); border: 1px solid var(--line); border-radius: 16px; padding: 22px; margin-bottom: 14px; backdrop-filter: blur(8px); }
+  h2 { font-size: 13px; color: var(--warn); margin-bottom: 12px; letter-spacing: .5px; text-transform: uppercase; }
+  .target { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 10px 12px; margin: 0 -12px; border-radius: 12px; transition: background .2s, box-shadow .2s; }
+  .target .tbody { min-width: 0; }
+  .target .name { font-size: 14px; font-weight: 600; color: var(--ink); word-break: break-word; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .target .meta { font-size: 11px; color: var(--ink2); margin-top: 2px; }
+  /* The name is a link: coloured, underlined, with an arrow — so it's obvious you
+     can click it to open Anki. */
+  .target a.tlink { color: var(--link); font-weight: 700; text-decoration: none; border-bottom: 1px dashed rgba(var(--blue-rgb), .5);
+    display: inline-flex; align-items: baseline; gap: 5px; padding: 0; background: none; border-radius: 0;
+    transition: color .15s, border-color .15s; }
+  .target a.tlink:hover, .target a.tlink:focus-visible { color: var(--link-h); border-bottom-color: var(--link-h); }
+  /* Anki's own logo, so the row is recognisable before it's read. The artwork is a
+     portrait card, so height is what's fixed and the width follows — forcing it
+     square is what made it look cropped. */
+  .applogo { flex: 0 0 auto; height: 22px; width: auto; display: inline-block; vertical-align: -5px; }
+  .target a.tlink .ext { font-size: 11px; opacity: .7; transition: transform .15s, opacity .15s; }
+  .target a.tlink:hover .ext { opacity: 1; transform: translate(1px, -1px); }
+  .target a.tlink:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+  /* Finished goes green, the same as a finished row in Settings. */
+  .target.done a.tlink { color: var(--good); border-bottom-color: rgba(var(--good-rgb), .5); }
+  .target.done a.tlink:hover, .target.done a.tlink:focus-visible { color: var(--good); border-bottom-color: var(--good); }
+  /* The button on the right stays a button. */
+  .target a.go { background: var(--blue); color: var(--on-blue); font-weight: 700; padding: 8px 12px; border-radius: 8px; text-decoration: none; font-size: 12px; white-space: nowrap; }
+  .target a.go:hover { background: var(--blue-d); }
+  /* The clock is running this second. */
+  .target.live { background: rgba(var(--blue-rgb), .12); box-shadow: inset 0 0 0 1px rgba(var(--blue-rgb), .5); }
+  .nowtag { font-size: 10px; font-weight: 800; letter-spacing: .4px; text-transform: uppercase;
+    color: var(--link); background: rgba(var(--blue-rgb), .22); border: 1px solid rgba(var(--blue-rgb), .5);
+    padding: 2px 7px; border-radius: 999px; }
+  .target.done { background: var(--good-l); box-shadow: inset 0 0 0 1px rgba(var(--good-rgb), .35); }
+  .target.done a.go { background: var(--good-fill); color: #fff; }
+  .progress { height: 5px; background: var(--line); border-radius: 999px; overflow: hidden; margin-top: 6px; }
+  /* The colour is set per bar in bars.js: red at the start, through orange and
+     yellow, to green when it's full. */
+  .progress > div { height: 100%; border-radius: 999px; background: hsl(0 92% 52%); transition: width .4s ease, background .4s ease; }
+  .quote { color: var(--ink2); font-size: 14px; font-style: italic; }
+  .nogoal { color: var(--ink2); font-size: 13px; line-height: 1.7; }
+  /* One-line messages, for the times a click has something to explain. */
+  .toast { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%);
+    background: var(--toast-bg); color: var(--toast-ink); border: 1px solid var(--line); border-radius: 10px;
+    padding: 10px 16px; font-size: 13px; max-width: 520px; text-align: center;
+    box-shadow: var(--shadow-l); z-index: 9999; animation: toastIn .2s ease both; }
+  @keyframes toastIn { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+  .foot { color: var(--muted); font-size: 11px; text-align: center; margin-top: 30px; }
+  /* Info bubble */
+  .tip { position: relative; display: inline-flex; vertical-align: middle; margin-left: 6px; }
+  .tip > .tip-i { width: 18px; height: 18px; border-radius: 50%; background: var(--card2); color: var(--warn); border: 1px solid var(--line); font-size: 11px; font-weight: 800; line-height: 18px; text-align: center; cursor: help; display: block; }
+  .tip > .tip-i:hover { background: var(--blue); color: var(--on-blue); }
+  /* Fixed + placed by tip.js, so no ancestor's overflow can clip it. */
+  .tip > .tip-box { position: fixed; left: 0; top: 0; z-index: 9999; width: 300px; background: var(--card); color: var(--ink2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font-size: 12px; font-weight: 400; line-height: 1.6; text-transform: none; letter-spacing: 0; text-align: left; box-shadow: var(--shadow-l); opacity: 0; visibility: hidden; transition: opacity .15s, visibility .15s; }
+  .tip:hover > .tip-box, .tip:focus-within > .tip-box, .tip.open > .tip-box { opacity: 1; visibility: visible; }
+  .tip .tip-box b { color: var(--hi); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div>
+      <div class="topbar">
+        <div class="pill">🔒 Locked</div>
+        <span class="grow"></span>
+        <!-- Rendered by theme.js so the button and its label can't disagree. -->
+        <span id="themeSlot"></span>
+      </div>
+      <div class="site">
+        <!-- The blocked site's own favicon, fetched from the browser's cache by
+             blocked.js. Falls back to its first letter. -->
+        <span class="siteicon" id="siteIcon" aria-hidden="true"></span>
+        <h1 id="head">Anki first.</h1>
+      </div>
+      <!-- The one sentence that matters: what's left to do. Filled in by
+           blocked.js and kept up to date as you study. -->
+      <div class="lead" id="lead"></div>
+      <div class="from" id="from"></div>
+
+      <div class="card">
+        <h2 id="unlockTitle">Spend your time here to unlock</h2>
+        <div id="targets"></div>
+      </div>
+
+      <div class="card">
+        <div class="quote" id="quote">"Discipline is choosing between what you want now and what you want most."</div>
+      </div>
+
+      <div class="foot">Block Sites Until I Complete ANKI</div>
+    </div>
+  </div>
+  <!-- Tap-to-open for the info bubbles lives in tip.js. An extension page is not
+       allowed to run an inline script, so it cannot live here. -->
+  <script src="bars.js"></script>
+  <script src="gates.js"></script>
+  <!-- So this page can name the keywords the video was judged against. Same file the worker
+       used to judge it, so the explanation cannot disagree with the verdict. -->
+  <script src="keywords.js"></script>
+  <script src="tip.js"></script>
+  <script src="blocked.js"></script>
+</body>
+</html>

@@ -1,0 +1,141 @@
+/* ---------------------------------------------------------------------------
+   One palette for every surface this extension owns: the popup, the settings
+   page, the "earn it first" block screen and the study / camera window.
+
+   Before this file each page carried its own hardcoded colours, which is why
+   settings was light and everything else was dark. Now there is a single set of
+   tokens and two values for each of them, so one attribute on <html> reskins the
+   whole extension.
+
+   DARK IS THE DEFAULT. The plain `:root` block below is the dark set, so a page
+   is already dark before any script has run â€” no flash of white while storage is
+   read. Light mode is an override that only lands once `data-theme="light"` is
+   set (theme.js does that).
+
+   The `:not(.mini)` on the light block is deliberate: `.mini` is the little
+   always-on-top camera window that floats over Anki. A white video chrome
+   hovering over a full-screen app looks broken, so that one window keeps the dark
+   tokens whatever the rest of the extension is set to.
+
+   Naming: `--blue*` is the Anki accent, `--link` is "accent text sitting on a
+   surface" (it has to lighten in dark mode, while `--blue-d` stays a border /
+   hover fill). `--*-rgb` triplets exist so rules can build their own rgba()
+   tints â€” `rgba(var(--blue-rgb), .3)` â€” instead of hardcoding the channel values.
+   --------------------------------------------------------------------------- */
+
+:root {
+  color-scheme: dark;
+
+  /* surfaces */
+  --desk: #0b1020;
+  --desk-grad: radial-gradient(circle at 30% 12%, #1c2739, #0b1020 62%);
+  --card: #111c33;
+  --card-glass: rgba(15, 23, 42, .72);
+  --card2: #16233c;
+  --field: #0f172a;
+  --line: #1e293b;
+  --line2: #141c30;
+
+  /* text */
+  --ink: #e8edf5;
+  --ink2: #cbd5e1;
+  --muted: #64748b;
+  --hi: #fde68a;              /* the amber "read this bit" emphasis */
+
+  /* Anki accent */
+  --blue: #2496dc;
+  --blue-d: #1b7ab5;          /* borders and hover fills */
+  --blue-l: rgba(36, 150, 220, .16);
+  --blue-rgb: 36, 150, 220;
+  --on-blue: #04121e;         /* text printed on a solid blue fill */
+  --link: #7dd3fc;            /* accent text on a surface */
+  --link-h: #bae6fd;
+
+  /* verdict colours: --x is text, --x-fill is a solid button */
+  --good: #4ade80;
+  --good-l: rgba(34, 197, 94, .14);
+  --good-fill: #16a34a;
+  --good-rgb: 34, 197, 94;
+  --warn: #fcd34d;
+  --warn-l: rgba(202, 138, 4, .16);
+  --warn-rgb: 202, 138, 4;
+  --bad: #f87171;
+  --bad-l: rgba(220, 38, 38, .14);
+  --bad-fill: #dc2626;
+  --bad-d: #b91c1c;
+  --bad-rgb: 220, 38, 38;
+  --on-bad: #ffffff;
+
+  /* controls */
+  --track-off: #334155;
+  --knob: #cbd5e1;
+  --scrim: rgba(3, 7, 18, .8);
+  --toast-bg: #111c33;
+  --toast-ink: #e8edf5;
+
+  --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 1px 3px rgba(0, 0, 0, .5);
+  --shadow-l: 0 14px 34px rgba(0, 0, 0, .6);
+  --r: 10px;
+}
+
+/* Light mode â€” Anki's own desk: grey background, white cards, hairline rules. */
+:root[data-theme="light"]:not(.mini) {
+  color-scheme: light;
+
+  --desk: #f0f1f3;
+  --desk-grad: linear-gradient(180deg, #f7f8fa, #ebedf0);
+  --card: #ffffff;
+  --card-glass: #ffffff;
+  --card2: #f7f8f9;
+  --field: #ffffff;
+  --line: #dcdfe3;
+  --line2: #e9ebee;
+
+  --ink: #21252b;
+  --ink2: #4a5158;
+  --muted: #7a828b;
+  --hi: #8a5a00;
+
+  --blue: #2496dc;
+  --blue-d: #1b7ab5;
+  --blue-l: #e8f4fc;
+  --blue-rgb: 36, 150, 220;
+  --on-blue: #ffffff;
+  --link: #1b7ab5;
+  --link-h: #2496dc;
+
+  --good: #00a65a;
+  --good-l: #e7f7ef;
+  --good-fill: #00a65a;
+  --good-rgb: 0, 166, 90;
+  --warn: #d98c00;
+  --warn-l: #fdf4e3;
+  --warn-rgb: 217, 140, 0;
+  --bad: #d0413b;
+  --bad-l: #fdeceb;
+  --bad-fill: #d0413b;
+  --bad-d: #b8352f;
+  --bad-rgb: 208, 65, 59;
+  --on-bad: #ffffff;
+
+  --track-off: #c6cbd1;
+  --knob: #ffffff;
+  --scrim: rgba(33, 37, 43, .45);
+  --toast-bg: #21252b;
+  --toast-ink: #ffffff;
+
+  --shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 1px 3px rgba(16, 24, 40, .08);
+  --shadow-l: 0 6px 20px rgba(16, 24, 40, .12);
+}
+
+/* ---- the day / night button, shared by the popup and the settings page ---- */
+.themebtn {
+  flex: 0 0 auto; display: grid; place-items: center;
+  width: 30px; height: 30px; padding: 0; line-height: 1;
+  background: var(--card2); color: var(--ink2);
+  border: 1px solid var(--line); border-radius: 8px;
+  cursor: pointer; font-size: 14px;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.themebtn:hover { background: var(--blue-l); border-color: var(--blue); color: var(--link); }
+.themebtn:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }

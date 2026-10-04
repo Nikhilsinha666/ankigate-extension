@@ -1,0 +1,73 @@
+{
+  "manifest_version": 3,
+  "name": "Block Sites Until I Complete ANKI",
+  "version": "1.8.1",
+  "description": "Keeps your distracting sites blocked until you have really studied today's goal in Anki. Window, camera and card anti-cheat.",
+  "permissions": [
+    "storage",
+    "tabs",
+    "alarms",
+    "favicon",
+    "contextMenus",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1:8765/*",
+    "http://127.0.0.1:8766/*",
+    "https://trigger.macrodroid.com/*"
+  ],
+  "optional_host_permissions": [
+    "https://generativelanguage.googleapis.com/*",
+    "https://api.groq.com/*",
+    "https://*/*",
+    "http://*/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "*://www.youtube.com/*",
+        "*://m.youtube.com/*"
+      ],
+      "exclude_matches": [
+        "*://www.youtube.com/embed/*"
+      ],
+      "js": [
+        "src/vblock.js",
+        "src/keywords.js",
+        "src/yt-mark.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "*://www.youtube.com/embed/*"
+      ],
+      "all_frames": true,
+      "js": [
+        "src/vblock.js",
+        "src/keywords.js",
+        "src/yt-mark.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "src/background.js"
+  },
+  "action": {
+    "default_popup": "src/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "default_title": "Block Sites Until I Complete ANKI"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "options_page": "src/options.html"
+}

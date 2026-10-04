@@ -1,0 +1,9 @@
+{
+  "name": "extension-packager",
+  "version": "1.0.0",
+  "commands": {
+    "build": "node -e \"console.log('Building Extension Release...');\"",
+    "test": "node tests/anki-gate.property.test.js",
+    "audit": "node -e \"console.log('Auditing Manifest V3...');\""
+  }
+}

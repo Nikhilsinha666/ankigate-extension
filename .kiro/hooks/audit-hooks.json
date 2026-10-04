@@ -1,0 +1,23 @@
+{
+  "version": "1.0.0",
+  "hooks": [
+    {
+      "name": "audit-manifest-permissions",
+      "trigger": "PostFileSave",
+      "matcher": "manifest.json",
+      "action": {
+        "type": "shell",
+        "command": "node -e \"const m=require('./manifest.json'); if (m.manifest_version !== 3) throw new Error('Must be MV3'); console.log('Manifest V3 Validated');\""
+      }
+    },
+    {
+      "name": "run-property-tests",
+      "trigger": "PostFileSave",
+      "matcher": "src/**/*.js",
+      "action": {
+        "type": "shell",
+        "command": "node tests/anki-gate.property.test.js"
+      }
+    }
+  ]
+}

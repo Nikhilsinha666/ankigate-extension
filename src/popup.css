@@ -1,0 +1,222 @@
+/* Popup: today's Anki progress at a glance. Shape only — every colour is a token
+   from theme.css, so this follows dark / light with the rest of the extension.
+   (It used to hardcode a dark navy palette, which is why it could never be
+   anything but dark.) */
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  width: 300px;
+  /* Hold the shape for the instant before the first paint, so the popup can never
+     appear as an empty sliver while it reads today's numbers. */
+  min-height: 190px;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--desk);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------------- top bar: state + power ---------------- */
+.bar { display: flex; align-items: center; gap: 8px; padding: 13px 14px 11px; }
+.state { display: flex; align-items: center; gap: 7px; flex: 1; min-width: 0; }
+.state .dot { width: 8px; height: 8px; border-radius: 999px; background: var(--blue); flex: none;
+  box-shadow: 0 0 0 3px rgba(var(--blue-rgb), .22); }
+.state .txt { font-size: 13px; font-weight: 700; letter-spacing: .2px; white-space: nowrap; }
+.state .sub { font-size: 10px; color: var(--muted); margin-top: 1px; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; }
+.state .col { min-width: 0; }
+body.done .state .dot { background: var(--good-fill); box-shadow: 0 0 0 3px rgba(var(--good-rgb), .2); }
+body.done .state .txt { color: var(--good); }
+body.off .state .dot { background: var(--track-off); box-shadow: none; }
+body.off .state .txt { color: var(--muted); }
+
+/* power switch */
+.pw { position: relative; flex: none; width: 40px; height: 22px; cursor: pointer; }
+.pw input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.pw .track { position: absolute; inset: 0; border-radius: 999px; background: var(--track-off);
+  transition: background .18s ease; }
+.pw .knob { position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 999px;
+  background: var(--muted); transition: transform .18s ease, background .18s ease;
+  display: grid; place-items: center; font-size: 9px; color: var(--desk); }
+.pw input:checked ~ .track { background: rgba(var(--good-rgb), .32); }
+.pw input:checked ~ .knob { transform: translateX(18px); background: var(--good-fill); }
+.pw input:disabled ~ .track { opacity: .45; }
+.pw input:disabled { cursor: not-allowed; }
+
+/* ---------------- headline number ---------------- */
+.hero { padding: 2px 14px 14px; }
+.hero .n { font-size: 34px; font-weight: 800; letter-spacing: -1.5px; line-height: 1;
+  font-variant-numeric: tabular-nums; }
+.hero .of { font-size: 11px; color: var(--muted); margin-top: 5px; }
+.hero .live { font-size: 11px; margin-top: 6px; color: var(--muted); }
+.hero .live.on { color: var(--good); }
+.hero .live.warn { color: var(--bad); }
+
+/* ---------------- rows ---------------- */
+.list { padding: 0 14px 4px; }
+.item { padding: 9px 0; border-top: 1px solid var(--line2); }
+.item .top { display: flex; align-items: baseline; gap: 8px; }
+.item .nm { flex: 1; min-width: 0; font-size: 12px; font-weight: 600; color: var(--ink2);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.item .rt { font-size: 11px; color: var(--ink2); font-variant-numeric: tabular-nums; flex: none; }
+.item .rt.done { color: var(--good); }
+.item .note { font-size: 10px; color: var(--muted); margin-top: 3px; }
+.item .note.warn { color: var(--warn); }
+
+.bar-track { height: 3px; background: var(--line2); border-radius: 999px; overflow: hidden; margin-top: 6px; }
+/* The fill's colour is set per bar in bars.js — red at the start, through orange
+   and yellow, to green when it's full. */
+.bar-track > i { display: block; height: 100%; background: hsl(0 92% 52%); border-radius: 999px;
+  transition: width .35s ease, background .35s ease; }
+
+/* The locked list, said in one line rather than listed out. */
+.locked { padding: 9px 0 2px; border-top: 1px solid var(--line2); font-size: 10px; color: var(--muted);
+  line-height: 1.55; }
+.locked b { color: var(--ink2); font-weight: 700; }
+
+/* ---------------- footer ---------------- */
+.stats { display: flex; gap: 14px; padding: 10px 14px; border-top: 1px solid var(--line2);
+  font-size: 11px; color: var(--ink2); }
+.stats b { color: var(--ink); font-weight: 700; }
+.foot { display: flex; gap: 8px; padding: 0 14px 14px; }
+.btn { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  background: var(--card2); color: var(--ink2); font-weight: 600; font-size: 12px; padding: 9px 10px;
+  border: 1px solid var(--line); border-radius: 9px; cursor: pointer; text-decoration: none;
+  transition: background .15s ease, border-color .15s ease; }
+.btn:hover { background: var(--blue-l); border-color: var(--blue); color: var(--link); }
+.btn.primary { background: var(--blue); border-color: var(--blue); color: var(--on-blue); }
+.btn.primary:hover { background: var(--blue-d); border-color: var(--blue-d); color: var(--on-blue); }
+/* "Switch it off" in the confirm card. Red because it stands every rule down, not because it is an
+   error — and never the button that holds the focus when the card opens. */
+.btn.danger { background: var(--bad-fill); border-color: var(--bad-fill); color: var(--on-bad); }
+.btn.danger:hover { background: var(--bad-d); border-color: var(--bad-d); color: var(--on-bad); }
+.btn.icon { flex: none; width: 38px; }
+/* On a break: the play button is the way back, so it says so. */
+.btn.icon.onbreak { background: rgba(var(--blue-rgb), .24); border-color: rgba(var(--blue-rgb), .6); color: var(--link); }
+.btn.icon.onbreak:hover { background: rgba(var(--blue-rgb), .34); }
+/* The day / night button sits in the footer row, so it matches the buttons
+   either side of it rather than the standalone .themebtn in theme.css. */
+.foot .themebtn { width: 38px; height: auto; border-radius: 9px; }
+
+.empty { font-size: 11px; color: var(--muted); padding: 4px 0 10px; }
+
+/* ---------------- one info bubble, kept subtle ---------------- */
+.tip { position: relative; display: inline-flex; vertical-align: middle; margin-left: 4px; }
+.tip > .tip-i { width: 14px; height: 14px; border-radius: 50%; background: var(--card2); color: var(--muted);
+  border: 1px solid var(--line); font-size: 9px; font-weight: 800; line-height: 13px; text-align: center;
+  cursor: help; user-select: none; display: block; }
+.tip > .tip-i:hover { background: var(--blue); color: var(--on-blue); border-color: var(--blue); }
+/* Fixed + placed by tip.js, so no ancestor's overflow can clip it. */
+.tip > .tip-box { position: fixed; left: 0; top: 0; z-index: 9999; width: 220px;
+  background: var(--card); color: var(--ink2); border: 1px solid var(--line); border-radius: 10px;
+  padding: 9px 11px; font-size: 11px; font-weight: 400; line-height: 1.6; text-align: left;
+  box-shadow: var(--shadow-l); opacity: 0; visibility: hidden;
+  transition: opacity .15s, visibility .15s; }
+.tip:hover > .tip-box, .tip:focus-within > .tip-box, .tip.open > .tip-box { opacity: 1; visibility: visible; }
+.tip .tip-box b { color: var(--hi); }
+
+/* ---------------- the Anki name is a link ---------------- */
+/* Clicking it opens the Anki desktop app. */
+.item .nm.link {
+  font: inherit; background: none; border: 0; padding: 0;
+  text-align: left; cursor: pointer; text-decoration: none; border-radius: 4px;
+  /* Reads as a link at a glance: link colour, dotted underline, and the ↗ that
+     says "this takes you somewhere". */
+  color: var(--link);
+  border-bottom: 1px dashed rgba(var(--blue-rgb), .5);
+  display: inline-flex; align-items: baseline; gap: 4px;
+  transition: color .15s, border-color .15s;
+}
+.item .nm.link .lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item .nm.link .ext { flex: none; font-size: 9px; opacity: .7; transition: transform .15s, opacity .15s; }
+.item .nm.link:hover, .item .nm.link:focus-visible { color: var(--link-h); border-bottom-color: var(--link-h); }
+.item .nm.link:hover .ext { opacity: 1; transform: translate(1px, -1px); }
+.item .nm.link:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+
+/* ---------------- password, asked only at the two real doors ---------------- */
+.pwask {
+  position: fixed; inset: 0; z-index: 9998; display: grid; place-items: center;
+  background: var(--scrim);
+}
+.pwask .pwcard {
+  width: 262px; padding: 18px 16px 14px; text-align: center;
+  background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+  box-shadow: var(--shadow-l);
+}
+.pwask .glyph { font-size: 22px; }
+.pwask h2 { font-size: 13px; font-weight: 800; margin: 6px 0 4px; }
+.pwask p { font-size: 11px; color: var(--ink2); line-height: 1.5; margin-bottom: 10px; }
+.pwask input {
+  width: 100%; padding: 9px 11px; border-radius: 9px; border: 1px solid var(--line);
+  background: var(--field); color: var(--ink); font-size: 13px;
+}
+.pwask input:focus { outline: none; border-color: var(--blue); }
+.pwask .err { color: var(--bad); font-size: 11px; min-height: 15px; margin: 4px 0 2px; }
+.pwask .pwrow { display: flex; gap: 8px; }
+/* The phone reminder inside the "switch it back on?" card. Information, not a fault, so it is
+   amber-tinted rather than red — and boxed rather than merely another paragraph, because it is about
+   a different machine from everything else on the card. */
+.pwask p.powarn {
+  background: var(--warn-l); border: 1px solid rgba(var(--warn-rgb), .45);
+  border-radius: 9px; padding: 7px 9px; margin-bottom: 10px; text-align: left;
+}
+.pwask p.powarn b { color: var(--hi); font-weight: 700; }
+
+/* ---------------- a line along the bottom ----------------
+   Fixed to the bottom of the popup rather than flowing into the list, so it cannot move the control
+   that was just pressed out from under the cursor. Never takes clicks, for the same reason. */
+.pop-toast {
+  position: fixed; left: 10px; right: 10px; bottom: 10px; z-index: 9998;
+  box-sizing: border-box; padding: 8px 10px; border-radius: 9px;
+  background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow-l);
+  color: var(--ink2); font-size: 10.5px; line-height: 1.45; text-align: left;
+  pointer-events: none; opacity: 0; transform: translateY(6px);
+  transition: opacity .18s ease, transform .18s ease;
+}
+.pop-toast.show { opacity: 1; transform: translateY(0); }
+.pop-toast b { color: var(--hi); font-weight: 700; }
+/* The phone reminder is information, not a fault, so it is amber-edged rather than red. */
+.pop-toast.phone { border-color: rgba(var(--warn-rgb), .45); }
+/* …except when the send actually failed, or this computer is offline. That one IS a fault, and the
+   apps on the phone are still in whatever state they were in before the switch moved. */
+.pop-toast.phone.warn { border-color: rgba(var(--bad-rgb), .6); }
+@media (prefers-reduced-motion: reduce) {
+  .pop-toast { transition: opacity .18s ease; transform: none; }
+  .pop-toast.show { transform: none; }
+}
+
+/* ---------------- the finish line ---------------- */
+.fgwin {
+  position: fixed; inset: 0; z-index: 9999; display: grid; place-items: center;
+  background: var(--scrim); opacity: 0; transition: opacity .25s ease;
+}
+.fgwin.show { opacity: 1; }
+.fgwincard {
+  width: 264px; padding: 20px 16px 16px; text-align: center; border-radius: 16px;
+  border: 1px solid rgba(var(--good-rgb), .5);
+  background: var(--card);
+  box-shadow: var(--shadow-l);
+  transform: scale(.9); transition: transform .3s cubic-bezier(.2, 1.4, .4, 1);
+}
+.fgwin.show .fgwincard { transform: scale(1); }
+.fgwincard .fgtrophy { font-size: 40px; line-height: 1; }
+.fgwincard h2 { font-size: 14px; font-weight: 800; color: var(--good); margin: 8px 0 5px; }
+.fgwincard p { font-size: 11px; color: var(--ink2); line-height: 1.55; }
+.fgwincard .fgxp {
+  display: inline-block; margin-top: 9px; padding: 4px 10px; border-radius: 999px;
+  background: var(--warn-l); color: var(--warn); font-weight: 800; font-size: 11px;
+}
+.fgwincard .btn { margin-top: 12px; }
+
+.fgparty { position: fixed; inset: 0; z-index: 10000; pointer-events: none; overflow: hidden; }
+.fgparty > i {
+  position: absolute; top: -12px; width: 7px; height: 11px; border-radius: 2px;
+  animation-name: fgfall; animation-timing-function: linear; animation-fill-mode: both;
+}
+@keyframes fgfall {
+  from { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+  to { transform: translateY(110vh) rotate(var(--rot, 360deg)); opacity: .85; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fgparty { display: none; }
+  .fgwin, .fgwincard { transition: none; }
+}
